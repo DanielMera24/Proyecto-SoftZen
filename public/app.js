@@ -173,11 +173,26 @@ class TherapeuticYogaApp {
 
             const data = await response.json();
             if (response.ok) {
-                this.token = data.token;
-                this.currentUser = data.user;
-                localStorage.setItem('token', this.token);
-                localStorage.setItem('user', JSON.stringify(this.currentUser));
-                this.showDashboard();
+                // NO guardar token ni usuario
+                // NO ir al dashboard
+                
+                // Mostrar mensaje de éxito
+                alert('Registro exitoso. Por favor, inicia sesión con tus credenciales.');
+                
+                // Limpiar el formulario de registro
+                document.getElementById('register-form').reset();
+                
+                // Cambiar a la pestaña de login
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
+                
+                // Mostrar formulario de login y ocultar registro
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+                
+                // Opcional: pre-llenar el email en el formulario de login
+                document.getElementById('login-email').value = email;
+                
             } else {
                 alert(data.error || 'Error al registrarse');
             }
@@ -269,7 +284,7 @@ class TherapeuticYogaApp {
             card.innerHTML = `
                 <div class="card-header">
                     <div>
-                        <div class="card-title">${patient.name}</div>
+                        <div class="card-title"> <!--${patient.name} --!>Información Paciente</div>
                         <p>${patient.email}</p>
                         <p>Edad: ${patient.age} años</p>
                         ${patient.condition ? `<p><strong>Condición:</strong> ${patient.condition}</p>` : ''}
