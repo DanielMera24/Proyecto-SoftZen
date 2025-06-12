@@ -506,9 +506,13 @@ class TherapeuticYogaApp {
             card.className = 'posture-card';
             card.dataset.postureId = posture.id;
             card.innerHTML = `
-                <img src="${posture.image}" alt="${posture.name}">
+                <div class="card-content">
                 <h4>${posture.name}</h4>
+                <div class="contenedor-img">
+                <img src="${posture.image}" alt="${posture.name}">
+                </div>
                 <p class="sanskrit">${posture.sanskrit}</p>
+                </div>
             `;
             card.addEventListener('click', () => this.togglePostureSelection(card, posture));
             container.appendChild(card);
