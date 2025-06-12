@@ -411,26 +411,38 @@ class TherapeuticYogaApp {
 
     async assignSeries(patientId) {
         this.currentPatient = this.patients.find(p => p.id === patientId);
+        const assigned = this.currentPatient.assigned_series;
+        let assignedSeries = null;
 
-        // Criterio 3: Confirmar si ya tiene serie
-        if (this.currentPatient.assignedSeries) {
-            const confirmChange = confirm(
-                `Este paciente ya tiene una serie asignada: "${this.currentPatient.assignedSeries.name}".\n¿Deseas reemplazarla?`
-            );
-            if (!confirmChange) {
-                return;
+        if (assigned) {
+            if (typeof assigned === 'string') {
+                try {
+                    assignedSeries = JSON.parse(assigned);
+                } catch (e) {
+                    console.error('Error al parsear la serie asignada:', e);
+                }
+            } else if (typeof assigned === 'object') {
+                assignedSeries = assigned;
             }
         }
+
+        if (assignedSeries) {
+            const confirmChange = confirm(
+                `Este paciente ya tiene una serie asignada: "${assignedSeries.name}".\n¿Deseas reemplazarla?`
+            );
+            if (!confirmChange) return;
+        }
+
+
 
         const modal = document.getElementById('assign-series-modal');
         const select = document.getElementById('series-select');
 
-        // Load series in select
         select.innerHTML = '<option value="">Seleccionar serie</option>';
         this.series.forEach(series => {
             const option = document.createElement('option');
             option.value = series.id;
-            option.textContent = `${series.name} (${series.therapyType.replace('_', ' ')})`;
+            option.textContent = `${series.name} (${series.therapy_type.replace('_', ' ')})`;
             select.appendChild(option);
         });
 
@@ -438,19 +450,19 @@ class TherapeuticYogaApp {
     }
 
 
+
     async confirmAssignSeries() {
         const seriesId = parseInt(document.getElementById('series-select').value);
 
         if (!seriesId) {
-            alert('Por favor selecciona una serie antes de guardar.');
+            alert('Por favor, selecciona una serie antes de continuar.');
             return;
         }
 
         if (!this.currentPatient) {
-            alert('No se ha seleccionado ningún paciente.');
+            alert('Paciente no válido');
             return;
         }
-
 
         try {
             const response = await this.fetchWithAuth(`/api/patients/${this.currentPatient.id}/assign-series`, {
@@ -459,6 +471,7 @@ class TherapeuticYogaApp {
             });
 
             if (response.ok) {
+                alert('Serie asignada correctamente');
                 this.closeModals();
                 await this.loadPatients();
             } else {
@@ -469,6 +482,7 @@ class TherapeuticYogaApp {
             alert('Error de conexión');
         }
     }
+
 
     async viewPatientSessions(patientId) {
         try {
