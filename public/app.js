@@ -726,6 +726,7 @@ class TherapeuticYogaApp {
 
     async handlePatientForm(e) {
         e.preventDefault();
+        console.log('✅ handlePatientForm llamado');
 
         const nameField = document.getElementById('patient-name');
         const emailField = document.getElementById('patient-email');
@@ -734,6 +735,7 @@ class TherapeuticYogaApp {
 
         if (!nameField || !emailField || !ageField || !conditionField) {
             alert('Error interno: campos no encontrados.');
+            console.error('❌ Campos no encontrados', { nameField, emailField, ageField, conditionField });
             return;
         }
 
@@ -741,6 +743,8 @@ class TherapeuticYogaApp {
         const email = emailField.value.trim();
         const age = parseInt(ageField.value);
         const condition = conditionField.value.trim();
+
+        console.log('📤 Datos a enviar', { name, email, age, condition });
 
         try {
             let response;
@@ -756,6 +760,8 @@ class TherapeuticYogaApp {
                 });
             }
 
+            console.log('🔁 Respuesta', response);
+
             if (response.ok) {
                 this.closeModals();
                 await this.loadPatients();
@@ -763,12 +769,15 @@ class TherapeuticYogaApp {
                 alert('✅ Paciente guardado exitosamente!');
             } else {
                 const data = await response.json();
+                console.error('❌ Error al guardar paciente', data);
                 alert(data.error || 'Error al guardar paciente');
             }
         } catch (error) {
+            console.error('❌ Error de conexión', error);
             alert('Error de conexión');
         }
     }
+
 
 
 
