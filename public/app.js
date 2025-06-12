@@ -12,6 +12,7 @@ class TherapeuticYogaApp {
         this.timerPaused = false;
         this.remainingTime = 0;
         this.currentPostureIndex = 0;
+        this.dashboardData = {};
 
         this.init();
     }
@@ -29,7 +30,6 @@ class TherapeuticYogaApp {
     async checkAuth() {
         if (this.token) {
             try {
-                // Verify token by making a request
                 const response = await this.fetchWithAuth('/api/therapy-types');
                 if (response.ok) {
                     const userStr = localStorage.getItem('user');
@@ -130,6 +130,10 @@ class TherapeuticYogaApp {
         });
 
         document.getElementById('confirm-assign-btn')?.addEventListener('click', this.confirmAssignSeries.bind(this));
+        
+        // Dashboard controls
+        document.getElementById('export-reports-btn')?.addEventListener('click', this.exportReports.bind(this));
+        document.getElementById('refresh-dashboard-btn')?.addEventListener('click', this.refreshDashboard.bind(this));
     }
 
     async handleLogin(e) {
@@ -176,23 +180,13 @@ class TherapeuticYogaApp {
 
             const data = await response.json();
             if (response.ok) {
-                // Mostrar mensaje de éxito
                 alert('✅ Registro exitoso! Por favor, inicia sesión con tus credenciales.');
-
-                // Limpiar el formulario de registro
                 document.getElementById('register-form').reset();
-
-                // Cambiar a la pestaña de login
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
-
-                // Mostrar formulario de login y ocultar registro
                 document.getElementById('login-form').classList.remove('hidden');
                 document.getElementById('register-form').classList.add('hidden');
-
-                // Pre-llenar el email en el formulario de login
                 document.getElementById('login-email').value = email;
-
             } else {
                 alert(data.error || 'Error al registrarse');
             }
@@ -207,7 +201,6 @@ class TherapeuticYogaApp {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         this.showAuth();
-        // Limpiar timer si existe
         if (this.sessionTimer) {
             clearInterval(this.sessionTimer);
         }
@@ -234,6 +227,8 @@ class TherapeuticYogaApp {
             this.loadSeries();
         } else if (view === 'create-series') {
             this.loadTherapyTypes();
+        } else if (view === 'dashboard') {
+            this.loadDashboard();
         }
     }
 
@@ -241,6 +236,7 @@ class TherapeuticYogaApp {
         await this.loadTherapyTypes();
         await this.loadPatients();
         await this.loadSeries();
+        await this.loadDashboard();
     }
 
     async loadTherapyTypes() {
@@ -278,6 +274,196 @@ class TherapeuticYogaApp {
         }
     }
 
+    async loadDashboard() {
+        try {
+            // Cargar estadísticas generales
+            const [patientsResponse, seriesResponse] = await Promise.all([
+                this.fetchWithAuth('/api/patients'),
+                this.fetchWithAuth('/api/therapy-series')
+            ]);
+
+            if (patientsResponse.ok && seriesResponse.ok) {
+                const patients = await patientsResponse.json();
+                const series = await seriesResponse.json();
+                
+                // Calcular métricas
+                this.dashboardData = this.calculateDashboardMetrics(patients, series);
+                this.renderDashboard();
+            }
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    calculateDashboardMetrics(patients, series) {
+        const totalPatients = patients.length;
+        const activePatients = patients.filter(p => p.assigned_series).length;
+        const completedSessions = patients.reduce((sum, p) => sum + (p.current_session || 0), 0);
+        const totalSeries = series.length;
+        
+        // Calcular progreso promedio
+        const patientsWithSeries = patients.filter(p => p.assigned_series);
+        const averageProgress = patientsWithSeries.length > 0 
+            ? patientsWithSeries.reduce((sum, p) => {
+                const seriesData = JSON.parse(p.assigned_series);
+                return sum + ((p.current_session || 0) / seriesData.total_sessions * 100);
+            }, 0) / patientsWithSeries.length 
+            : 0;
+
+        // Calcular distribución por tipo de terapia
+        const therapyDistribution = {};
+        series.forEach(s => {
+            therapyDistribution[s.therapy_type] = (therapyDistribution[s.therapy_type] || 0) + 1;
+        });
+
+        return {
+            totalPatients,
+            activePatients,
+            completedSessions,
+            totalSeries,
+            averageProgress: Math.round(averageProgress),
+            therapyDistribution,
+            patientsWithProgress: patientsWithSeries.map(p => {
+                const seriesData = JSON.parse(p.assigned_series);
+                return {
+                    name: p.name,
+                    progress: Math.round((p.current_session || 0) / seriesData.total_sessions * 100),
+                    currentSession: p.current_session || 0,
+                    totalSessions: seriesData.total_sessions,
+                    therapyType: seriesData.therapy_type
+                };
+            })
+        };
+    }
+
+    renderDashboard() {
+        const container = document.getElementById('dashboard-content');
+        if (!container) return;
+
+        const { totalPatients, activePatients, completedSessions, totalSeries, averageProgress, therapyDistribution, patientsWithProgress } = this.dashboardData;
+
+        container.innerHTML = `
+            <div class="dashboard-grid">
+                <div class="metric-card">
+                    <div class="metric-icon">👥</div>
+                    <div class="metric-content">
+                        <h3>Total Pacientes</h3>
+                        <div class="metric-value">${totalPatients}</div>
+                        <div class="metric-subtitle">${activePatients} activos</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon">🧘‍♀️</div>
+                    <div class="metric-content">
+                        <h3>Series Creadas</h3>
+                        <div class="metric-value">${totalSeries}</div>
+                        <div class="metric-subtitle">Terapias disponibles</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon">📊</div>
+                    <div class="metric-content">
+                        <h3>Sesiones Completadas</h3>
+                        <div class="metric-value">${completedSessions}</div>
+                        <div class="metric-subtitle">Total acumulado</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon">📈</div>
+                    <div class="metric-content">
+                        <h3>Progreso Promedio</h3>
+                        <div class="metric-value">${averageProgress}%</div>
+                        <div class="metric-subtitle">Pacientes activos</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-charts">
+                <div class="chart-container">
+                    <h3>Distribución por Tipo de Terapia</h3>
+                    <div class="therapy-distribution">
+                        ${Object.entries(therapyDistribution).map(([type, count]) => {
+                            const typeName = {
+                                'anxiety': 'Ansiedad',
+                                'arthritis': 'Artritis',
+                                'back_pain': 'Dolor de Espalda'
+                            }[type] || type;
+                            const percentage = Math.round((count / totalSeries) * 100);
+                            return `
+                                <div class="therapy-item">
+                                    <span class="therapy-label">${typeName}</span>
+                                    <div class="therapy-bar">
+                                        <div class="therapy-fill" style="width: ${percentage}%"></div>
+                                    </div>
+                                    <span class="therapy-count">${count}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Progreso de Pacientes Activos</h3>
+                    <div class="patients-progress">
+                        ${patientsWithProgress.map(patient => `
+                            <div class="patient-progress-item">
+                                <div class="patient-info">
+                                    <span class="patient-name">${patient.name}</span>
+                                    <span class="patient-sessions">${patient.currentSession}/${patient.totalSessions} sesiones</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${patient.progress}%"></div>
+                                </div>
+                                <span class="progress-percentage">${patient.progress}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-actions">
+                <button id="refresh-dashboard-btn" class="btn-secondary">🔄 Actualizar</button>
+                <button id="export-reports-btn" class="btn-primary">📊 Exportar Reportes</button>
+            </div>
+        `;
+
+        // Re-bind event listeners for dashboard buttons
+        document.getElementById('refresh-dashboard-btn')?.addEventListener('click', this.refreshDashboard.bind(this));
+        document.getElementById('export-reports-btn')?.addEventListener('click', this.exportReports.bind(this));
+    }
+
+    async refreshDashboard() {
+        await this.loadDashboard();
+        alert('📊 Dashboard actualizado correctamente');
+    }
+
+    async exportReports() {
+        try {
+            const reportData = {
+                generatedAt: new Date().toISOString(),
+                instructor: this.currentUser.name,
+                metrics: this.dashboardData
+            };
+
+            const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reporte-yoga-terapeutico-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('📊 Reporte exportado exitosamente');
+        } catch (error) {
+            alert('Error al exportar reporte');
+        }
+    }
+
     renderPatients() {
         const container = document.getElementById('patients-list');
         container.innerHTML = '';
@@ -290,9 +476,12 @@ class TherapeuticYogaApp {
         this.patients.forEach(patient => {
             const hasSeries = patient.assigned_series && typeof patient.assigned_series === 'string';
             const seriesData = hasSeries ? JSON.parse(patient.assigned_series) : null;
+            const progressPercentage = seriesData 
+                ? Math.round(((patient.current_session || 0) / seriesData.total_sessions) * 100)
+                : 0;
 
             const card = document.createElement('div');
-            card.className = 'card';
+            card.className = 'card patient-card';
             card.innerHTML = `
                 <div class="card-header">
                     <div>
@@ -303,24 +492,167 @@ class TherapeuticYogaApp {
                     </div>
                 </div>
                 ${seriesData ? `
-                    <div style="background: #e8f5e8; padding: 0.5rem; border-radius: 6px; margin: 1rem 0;">
-                        <strong>✅ Serie asignada:</strong> ${seriesData.name}
-                        <br><small>Progreso: ${patient.current_session || 0}/${seriesData.total_sessions} sesiones</small>
+                    <div class="series-status assigned">
+                        <div class="series-info">
+                            <strong>✅ Serie asignada:</strong> ${seriesData.name}
+                            <div class="series-details">
+                                <span>Tipo: ${this.getTherapyTypeName(seriesData.therapy_type)}</span>
+                                <span>Progreso: ${patient.current_session || 0}/${seriesData.total_sessions} sesiones</span>
+                            </div>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+                            </div>
+                            <span class="progress-text">${progressPercentage}%</span>
+                        </div>
                     </div>
                 ` : `
-                    <div style="background: #fff3cd; padding: 0.5rem; border-radius: 6px; margin: 1rem 0;">
+                    <div class="series-status unassigned">
                         <strong>⚠️ Sin serie asignada</strong>
+                        <p>Este paciente necesita una serie terapéutica</p>
                     </div>
                 `}
                 <div class="card-actions">
                     <button class="btn-primary btn-small" onclick="app.editPatient(${patient.id})">✏️ Editar</button>
                     <button class="btn-secondary btn-small" onclick="app.assignSeries(${patient.id})">📋 Asignar Serie</button>
                     <button class="btn-secondary btn-small" onclick="app.viewPatientSessions(${patient.id})">📊 Ver Sesiones</button>
+                    <button class="btn-secondary btn-small" onclick="app.viewPatientDetails(${patient.id})">👁️ Detalles</button>
                     <button class="btn-secondary btn-small" onclick="app.deletePatient(${patient.id})" style="background: #dc3545;">🗑️ Eliminar</button>
                 </div>
             `;
             container.appendChild(card);
         });
+    }
+
+    getTherapyTypeName(type) {
+        return {
+            'anxiety': 'Ansiedad',
+            'arthritis': 'Artritis',
+            'back_pain': 'Dolor de Espalda'
+        }[type] || type;
+    }
+
+    async viewPatientDetails(patientId) {
+        const patient = this.patients.find(p => p.id === patientId);
+        if (!patient) return;
+
+        try {
+            const sessionsResponse = await this.fetchWithAuth(`/api/patients/${patientId}/sessions`);
+            const sessions = sessionsResponse.ok ? await sessionsResponse.json() : [];
+            
+            this.renderPatientDetailsModal(patient, sessions);
+            document.getElementById('patient-details-modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error loading patient details:', error);
+        }
+    }
+
+    renderPatientDetailsModal(patient, sessions) {
+        const hasSeries = patient.assigned_series && typeof patient.assigned_series === 'string';
+        const seriesData = hasSeries ? JSON.parse(patient.assigned_series) : null;
+        
+        // Calcular estadísticas de dolor
+        const painStats = this.calculatePainStats(sessions);
+        
+        const modalContent = document.getElementById('patient-details-content');
+        modalContent.innerHTML = `
+            <div class="patient-details-header">
+                <h3>👤 ${patient.name}</h3>
+                <div class="patient-basic-info">
+                    <p><strong>📧 Email:</strong> ${patient.email}</p>
+                    <p><strong>🎂 Edad:</strong> ${patient.age} años</p>
+                    <p><strong>📅 Registrado:</strong> ${new Date(patient.created_at).toLocaleDateString()}</p>
+                    ${patient.condition ? `<p><strong>🏥 Condición:</strong> ${patient.condition}</p>` : ''}
+                </div>
+            </div>
+
+            <div class="patient-series-details">
+                ${seriesData ? `
+                    <h4>🧘‍♀️ Serie Actual</h4>
+                    <div class="current-series">
+                        <div class="series-summary">
+                            <p><strong>Nombre:</strong> ${seriesData.name}</p>
+                            <p><strong>Tipo:</strong> ${this.getTherapyTypeName(seriesData.therapy_type)}</p>
+                            <p><strong>Posturas:</strong> ${seriesData.postures.length}</p>
+                            <p><strong>Progreso:</strong> ${patient.current_session || 0}/${seriesData.total_sessions} sesiones</p>
+                        </div>
+                        <div class="series-progress-visual">
+                            <div class="progress-circle">
+                                <span>${Math.round(((patient.current_session || 0) / seriesData.total_sessions) * 100)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="no-series">
+                        <p>⚠️ Este paciente no tiene una serie asignada</p>
+                        <button class="btn-primary" onclick="app.assignSeries(${patient.id})">Asignar Serie</button>
+                    </div>
+                `}
+            </div>
+
+            <div class="patient-stats">
+                <h4>📊 Estadísticas de Sesiones</h4>
+                ${sessions.length > 0 ? `
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Sesiones</span>
+                            <span class="stat-value">${sessions.length}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Dolor Inicial Promedio</span>
+                            <span class="stat-value">${painStats.avgBefore}/10</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Dolor Final Promedio</span>
+                            <span class="stat-value">${painStats.avgAfter}/10</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Mejora Promedio</span>
+                            <span class="stat-value ${painStats.avgImprovement >= 0 ? 'positive' : 'negative'}">
+                                ${painStats.avgImprovement >= 0 ? '-' : '+'}${Math.abs(painStats.avgImprovement)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pain-trend">
+                        <h5>Tendencia de Dolor</h5>
+                        <div class="pain-chart">
+                            ${sessions.slice(-5).map((session, index) => `
+                                <div class="pain-session">
+                                    <div class="session-bars">
+                                        <div class="pain-bar before" style="height: ${session.pain_before * 10}%" title="Antes: ${session.pain_before}"></div>
+                                        <div class="pain-bar after" style="height: ${session.pain_after * 10}%" title="Después: ${session.pain_after}"></div>
+                                    </div>
+                                    <span class="session-label">S${session.session_number}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="legend-color before"></span> Antes</span>
+                            <span class="legend-item"><span class="legend-color after"></span> Después</span>
+                        </div>
+                    </div>
+                ` : `
+                    <p style="text-align: center; color: #666;">No hay sesiones registradas aún</p>
+                `}
+            </div>
+        `;
+    }
+
+    calculatePainStats(sessions) {
+        if (sessions.length === 0) {
+            return { avgBefore: 0, avgAfter: 0, avgImprovement: 0 };
+        }
+
+        const avgBefore = sessions.reduce((sum, s) => sum + s.pain_before, 0) / sessions.length;
+        const avgAfter = sessions.reduce((sum, s) => sum + s.pain_after, 0) / sessions.length;
+        const avgImprovement = avgBefore - avgAfter;
+
+        return {
+            avgBefore: Math.round(avgBefore * 10) / 10,
+            avgAfter: Math.round(avgAfter * 10) / 10,
+            avgImprovement: Math.round(avgImprovement * 10) / 10
+        };
     }
 
     renderSeries() {
@@ -333,11 +665,12 @@ class TherapeuticYogaApp {
         }
 
         this.series.forEach(series => {
-            const therapyTypeName = {
-                'anxiety': 'Ansiedad',
-                'arthritis': 'Artritis',
-                'back_pain': 'Dolor de Espalda'
-            }[series.therapy_type] || series.therapy_type;
+            const therapyTypeName = this.getTherapyTypeName(series.therapy_type);
+            const assignedCount = this.patients.filter(p => {
+                if (!p.assigned_series) return false;
+                const patientSeries = JSON.parse(p.assigned_series);
+                return patientSeries.id === series.id;
+            }).length;
 
             const card = document.createElement('div');
             card.className = 'card';
@@ -348,6 +681,7 @@ class TherapeuticYogaApp {
                         <p><strong>🎯 Tipo:</strong> ${therapyTypeName}</p>
                         <p><strong>🤸‍♀️ Posturas:</strong> ${series.postures.length}</p>
                         <p><strong>📅 Sesiones totales:</strong> ${series.total_sessions}</p>
+                        <p><strong>👥 Pacientes asignados:</strong> ${assignedCount}</p>
                         <p><small>📅 Creada: ${new Date(series.created_at).toLocaleDateString()}</small></p>
                     </div>
                 </div>
@@ -360,6 +694,10 @@ class TherapeuticYogaApp {
                             </span>`
                         ).join('')}
                     </div>
+                </div>
+                <div class="card-actions" style="margin-top: 1rem;">
+                    <button class="btn-secondary btn-small" onclick="app.viewSeriesDetails(${series.id})">👁️ Ver Detalles</button>
+                    <button class="btn-secondary btn-small" onclick="app.duplicateSeries(${series.id})">📋 Duplicar</button>
                 </div>
             `;
             container.appendChild(card);
@@ -410,6 +748,7 @@ class TherapeuticYogaApp {
             if (response.ok) {
                 this.closeModals();
                 await this.loadPatients();
+                await this.loadDashboard(); // Actualizar dashboard
                 alert('✅ Paciente guardado exitosamente!');
             } else {
                 const data = await response.json();
@@ -436,6 +775,7 @@ class TherapeuticYogaApp {
 
                 if (response.ok) {
                     await this.loadPatients();
+                    await this.loadDashboard(); // Actualizar dashboard
                     alert('✅ Paciente eliminado exitosamente');
                 } else {
                     const data = await response.json();
@@ -450,22 +790,29 @@ class TherapeuticYogaApp {
     async assignSeries(patientId) {
         this.currentPatient = this.patients.find(p => p.id === patientId);
 
+        // Asegurar que las series estén cargadas
+        if (this.series.length === 0) {
+            await this.loadSeries();
+        }
+
         const modal = document.getElementById('assign-series-modal');
         const select = document.getElementById('series-select');
 
         select.innerHTML = '<option value="">Seleccionar serie</option>';
-        this.series.forEach(series => {
-            const therapyTypeName = {
-                'anxiety': 'Ansiedad',
-                'arthritis': 'Artritis',
-                'back_pain': 'Dolor de Espalda'
-            }[series.therapy_type] || series.therapy_type;
-            
-            const option = document.createElement('option');
-            option.value = series.id;
-            option.textContent = `${series.name} (${therapyTypeName}) - ${series.postures.length} posturas`;
-            select.appendChild(option);
-        });
+        
+        if (this.series.length === 0) {
+            select.innerHTML = '<option value="">No hay series disponibles</option>';
+            select.disabled = true;
+        } else {
+            select.disabled = false;
+            this.series.forEach(series => {
+                const therapyTypeName = this.getTherapyTypeName(series.therapy_type);
+                const option = document.createElement('option');
+                option.value = series.id;
+                option.textContent = `${series.name} (${therapyTypeName}) - ${series.postures.length} posturas`;
+                select.appendChild(option);
+            });
+        }
 
         const hasSeries = this.currentPatient.assigned_series && typeof this.currentPatient.assigned_series === 'string';
         if (hasSeries) {
@@ -497,6 +844,7 @@ class TherapeuticYogaApp {
             if (response.ok) {
                 this.closeModals();
                 await this.loadPatients();
+                await this.loadDashboard(); // Actualizar dashboard
                 alert('✅ Serie asignada exitosamente!');
             } else {
                 const data = await response.json();
@@ -603,14 +951,12 @@ class TherapeuticYogaApp {
         
         if (!posture) return;
 
-        // Llenar el modal con la información de la postura
         document.getElementById('modal-posture-name').textContent = posture.name;
         document.getElementById('modal-posture-sanskrit').textContent = posture.sanskrit;
         document.getElementById('modal-posture-instructions').textContent = posture.instructions;
         document.getElementById('modal-posture-benefits').textContent = posture.benefits;
         document.getElementById('modal-posture-modifications').textContent = posture.modifications;
         
-        // Configurar el video
         const videoFrame = document.getElementById('modal-posture-video');
         if (posture.videoUrl) {
             const videoId = this.extractYouTubeVideoId(posture.videoUrl);
@@ -668,7 +1014,6 @@ class TherapeuticYogaApp {
         const therapyType = document.getElementById('therapy-type').value;
         const totalSessions = parseInt(document.getElementById('total-sessions').value);
 
-        // Get selected postures with durations
         const selectedCards = document.querySelectorAll('.posture-card.selected');
         const postures = [];
 
@@ -702,6 +1047,7 @@ class TherapeuticYogaApp {
                 document.getElementById('create-series-form').reset();
                 document.getElementById('postures-section').classList.add('hidden');
                 await this.loadSeries();
+                await this.loadDashboard(); // Actualizar dashboard
             } else {
                 const data = await response.json();
                 alert(data.error || 'Error al crear serie');
@@ -732,11 +1078,8 @@ class TherapeuticYogaApp {
         const { series, currentSession } = data;
 
         const progressPercentage = Math.round((currentSession / series.total_sessions) * 100);
-        const therapyTypeName = {
-            'anxiety': 'Ansiedad',
-            'arthritis': 'Artritis', 
-            'back_pain': 'Dolor de Espalda'
-        }[series.therapy_type] || series.therapy_type;
+        const therapyTypeName = this.getTherapyTypeName(series.therapy_type);
+        const isCompleted = currentSession >= series.total_sessions;
 
         container.innerHTML = `
             <div class="series-card">
@@ -749,16 +1092,33 @@ class TherapeuticYogaApp {
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
                     </div>
                 </div>
-                ${currentSession < series.total_sessions ?
-                `<p>🎯 Próxima sesión: ${currentSession + 1}</p>` :
-                '<p style="color: green;">🎉 ¡Serie completada! ¡Excelente trabajo!</p>'
-            }
+                ${!isCompleted ? `
+                    <p>🎯 Próxima sesión: ${currentSession + 1}</p>
+                    <div style="margin-top: 1rem;">
+                        <h4>📝 Posturas de tu próxima sesión:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                            ${series.postures.map(posture => `
+                                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; text-align: center;">
+                                    <img src="${posture.image}" alt="${posture.name}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <h5>${posture.name}</h5>
+                                    <p style="font-size: 0.875rem; color: #666;">${posture.duration} minutos</p>
+                                    ${posture.videoUrl ? `<a href="${posture.videoUrl}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.875rem;">🎥 Ver video</a>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: #e8f5e8; padding: 1rem; border-radius: 8px; text-align: center; margin-top: 1rem;">
+                        <h4 style="color: #2e7d32;">🎉 ¡Serie Completada!</h4>
+                        <p>¡Felicitaciones! Has completado toda tu serie de yoga terapéutico.</p>
+                        <p>Contacta a tu instructor para obtener una nueva serie.</p>
+                    </div>
+                `}
             </div>
         `;
 
         this.currentSeries = series;
-        document.getElementById('start-session-btn').style.display =
-            currentSession < series.total_sessions ? 'block' : 'none';
+        document.getElementById('start-session-btn').style.display = isCompleted ? 'none' : 'block';
     }
 
     startSession() {
@@ -791,14 +1151,22 @@ class TherapeuticYogaApp {
         document.getElementById('posture-benefits').textContent = posture.benefits;
         document.getElementById('posture-modifications').textContent = posture.modifications;
 
-        // Configurar el video
         const videoFrame = document.getElementById('posture-video');
         if (posture.videoUrl) {
             const videoId = this.extractYouTubeVideoId(posture.videoUrl);
             if (videoId) {
-                videoFrame.src = `https://www.youtube.com/embed/${videoId}`;
+                videoFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`;
             }
         }
+
+        const pauseBtn = document.getElementById('pause-timer-btn');
+        const nextBtn = document.getElementById('next-posture-btn');
+        
+        pauseBtn.style.display = 'inline-block';
+        pauseBtn.textContent = '⏸️ Pausar';
+        nextBtn.textContent = this.currentPostureIndex === this.currentSeries.postures.length - 1 ? 
+            'Finalizar Posturas ➡️' : 'Siguiente Postura ➡️';
+        nextBtn.disabled = true;
 
         this.startPostureTimer(posture.duration);
     }
@@ -811,7 +1179,6 @@ class TherapeuticYogaApp {
         const nextBtn = document.getElementById('next-posture-btn');
         
         pauseBtn.textContent = '⏸️ Pausar';
-        nextBtn.textContent = 'Siguiente Postura ➡️';
         nextBtn.disabled = false;
 
         const updateTimer = () => {
@@ -827,10 +1194,12 @@ class TherapeuticYogaApp {
 
             if (this.remainingTime <= 0) {
                 clearInterval(this.sessionTimer);
-                nextBtn.textContent = '✅ Tiempo completado - Siguiente';
+                const isLastPosture = this.currentPostureIndex === this.currentSeries.postures.length - 1;
+                nextBtn.textContent = isLastPosture ? 
+                    '✅ Completar Sesión' : '✅ Tiempo completado - Siguiente';
+                nextBtn.style.background = '#28a745';
                 pauseBtn.style.display = 'none';
                 
-                // Reproducir sonido de finalización (opcional)
                 this.playCompletionSound();
             }
         };
@@ -851,7 +1220,6 @@ class TherapeuticYogaApp {
     }
 
     playCompletionSound() {
-        // Crear un sonido simple de completado
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
@@ -882,7 +1250,6 @@ class TherapeuticYogaApp {
         this.currentPostureIndex++;
 
         if (this.currentPostureIndex >= this.currentSeries.postures.length) {
-            // Session complete
             document.getElementById('posture-display').classList.add('hidden');
             document.getElementById('post-session').classList.remove('hidden');
         } else {
@@ -926,7 +1293,6 @@ class TherapeuticYogaApp {
                 document.getElementById('patient-home').classList.remove('hidden');
                 await this.loadPatientData();
                 
-                // Limpiar el formulario
                 document.getElementById('session-comments').value = '';
                 document.getElementById('pain-after').value = 0;
                 document.getElementById('pain-after-value').textContent = '0';
@@ -944,7 +1310,6 @@ class TherapeuticYogaApp {
             modal.classList.add('hidden');
         });
         
-        // Limpiar videos al cerrar modales
         document.getElementById('modal-posture-video').src = '';
         document.getElementById('posture-video').src = '';
     }
