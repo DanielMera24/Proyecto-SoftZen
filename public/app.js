@@ -279,20 +279,23 @@ class TherapeuticYogaApp {
         container.innerHTML = '';
 
         this.patients.forEach(patient => {
+            const hasSeries = patient.assigned_series && typeof patient.assigned_series === 'string';
+            const seriesData = hasSeries ? JSON.parse(patient.assigned_series) : null;
+
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-header">
                     <div>
-                        <div class="card-title"> <!--${patient.name} --!>Información Paciente</div>
+                        <div class="card-title">${patient.name}</div>
                         <p>${patient.email}</p>
                         <p>Edad: ${patient.age} años</p>
                         ${patient.condition ? `<p><strong>Condición:</strong> ${patient.condition}</p>` : ''}
                     </div>
                 </div>
-                ${patient.assignedSeries ? `
+                ${seriesData ? `
                     <div style="background: #e8f5e8; padding: 0.5rem; border-radius: 6px; margin: 1rem 0;">
-                        <strong>Serie asignada:</strong> ${patient.assignedSeries.name}
+                        <strong>Serie asignada:</strong> ${seriesData.name}
                     </div>
                 ` : ''}
                 <div class="card-actions">
@@ -317,9 +320,9 @@ class TherapeuticYogaApp {
                 <div class="card-header">
                     <div>
                         <div class="card-title">${series.name}</div>
-                        <p><strong>Tipo:</strong> ${series.therapyType.replace('_', ' ')}</p>
+                        <p><strong>Tipo:</strong> ${series.therapy_type.replace('_', ' ')}</p>
                         <p><strong>Posturas:</strong> ${series.postures.length}</p>
-                        <p><strong>Sesiones totales:</strong> ${series.totalSessions}</p>
+                        <p><strong>Sesiones totales:</strong> ${series.total_sessions}</p>
                     </div>
                 </div>
             `;
@@ -370,7 +373,7 @@ class TherapeuticYogaApp {
 
             if (response.ok) {
                 this.closeModals();
-                this.loadPatients();
+                await this.loadPatients();
             } else {
                 const data = await response.json();
                 alert(data.error || 'Error al guardar paciente');
@@ -395,7 +398,7 @@ class TherapeuticYogaApp {
                 });
 
                 if (response.ok) {
-                    this.loadPatients();
+                    await this.loadPatients();
                 } else {
                     const data = await response.json();
                     alert(data.error || 'Error al eliminar paciente');
@@ -416,7 +419,7 @@ class TherapeuticYogaApp {
         this.series.forEach(series => {
             const option = document.createElement('option');
             option.value = series.id;
-            option.textContent = `${series.name} (${series.therapyType.replace('_', ' ')})`;
+            option.textContent = `${series.name} (${series.therapy_type.replace('_', ' ')})`;
             select.appendChild(option);
         });
 
@@ -435,7 +438,7 @@ class TherapeuticYogaApp {
 
             if (response.ok) {
                 this.closeModals();
-                this.loadPatients();
+                await this.loadPatients();
             } else {
                 const data = await response.json();
                 alert(data.error || 'Error al asignar serie');
@@ -472,12 +475,12 @@ class TherapeuticYogaApp {
             sessionDiv.className = 'session-item';
             sessionDiv.innerHTML = `
                 <div class="session-header-info">
-                    <strong>Sesión ${session.sessionNumber}</strong>
-                    <span>${new Date(session.completedAt).toLocaleDateString()}</span>
+                    <strong>Sesión ${session.session_number}</strong>
+                    <span>${new Date(session.completed_at).toLocaleDateString()}</span>
                 </div>
                 <div class="pain-indicators">
-                    <span class="pain-indicator pain-before">Dolor antes: ${session.painBefore}/10</span>
-                    <span class="pain-indicator pain-after">Dolor después: ${session.painAfter}/10</span>
+                    <span class="pain-indicator pain-before">Dolor antes: ${session.pain_before}/10</span>
+                    <span class="pain-indicator pain-after">Dolor después: ${session.pain_after}/10</span>
                 </div>
                 <p><strong>Comentarios:</strong> ${session.comments}</p>
             `;
@@ -592,7 +595,7 @@ class TherapeuticYogaApp {
                 alert('Serie creada exitosamente');
                 document.getElementById('create-series-form').reset();
                 document.getElementById('postures-section').classList.add('hidden');
-                this.loadSeries();
+                await this.loadSeries();
             } else {
                 const data = await response.json();
                 alert(data.error || 'Error al crear serie');
@@ -625,10 +628,10 @@ class TherapeuticYogaApp {
         container.innerHTML = `
             <div class="series-card">
                 <h3>${series.name}</h3>
-                <p><strong>Tipo de terapia:</strong> ${series.therapyType.replace('_', ' ')}</p>
+                <p><strong>Tipo de terapia:</strong> ${series.therapy_type.replace('_', ' ')}</p>
                 <p><strong>Posturas:</strong> ${series.postures.length}</p>
-                <p><strong>Progreso:</strong> ${currentSession}/${series.totalSessions} sesiones</p>
-                ${currentSession < series.totalSessions ? 
+                <p><strong>Progreso:</strong> ${currentSession}/${series.total_sessions} sesiones</p>
+                ${currentSession < series.total_sessions ? 
                     `<p>Próxima sesión: ${currentSession + 1}</p>` : 
                     '<p style="color: green;">¡Serie completada!</p>'
                 }
@@ -637,7 +640,7 @@ class TherapeuticYogaApp {
 
         this.currentSeries = series;
         document.getElementById('start-session-btn').style.display = 
-            currentSession < series.totalSessions ? 'block' : 'none';
+            currentSession < series.total_sessions ? 'block' : 'none';
     }
 
     startSession() {
@@ -735,7 +738,7 @@ class TherapeuticYogaApp {
                 alert('¡Sesión completada exitosamente!');
                 document.getElementById('session-view').classList.add('hidden');
                 document.getElementById('patient-home').classList.remove('hidden');
-                this.loadPatientData();
+                await this.loadPatientData();
             } else {
                 const data = await response.json();
                 alert(data.error || 'Error al completar sesión');
