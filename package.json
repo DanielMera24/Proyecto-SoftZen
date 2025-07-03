@@ -1,0 +1,112 @@
+{
+  "name": "softzen-yoga-therapeutico",
+  "version": "2.1.0",
+  "description": "SoftZen - Plataforma de yoga terapéutico optimizada para instructores y pacientes. Enfoque en rendimiento, sostenibilidad y escalabilidad.",
+  "main": "backend/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "cd backend && npm run dev",
+    "backend": "cd backend && npm start",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:install": "cd backend && npm install",
+    "backend:verify": "cd backend && npm run verify",
+    "deploy": "firebase deploy --only \"firestore,hosting\"",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:firestore": "firebase deploy --only firestore",
+    "build": "npm run backend:verify && npm run deploy",
+    "test": "npm run backend:verify",
+    "lint": "echo 'Linting check would go here'",
+    "clean": "if exist .firebase rmdir /s /q .firebase",
+    "setup": "npm run backend:install && npm run backend:verify",
+    "dev-center": "start dev-center.bat",
+    "optimize": "start cleanup-optimize.bat",
+    "status": "firebase projects:list",
+    "logs": "firebase functions:log",
+    "serve": "firebase serve",
+    "emulators": "firebase emulators:start",
+    "backup": "echo 'Creating backup...' && mkdir backup && copy firebase.json backup/ && copy firestore.rules backup/",
+    "health": "curl -f http://localhost:3000/api/health || echo 'Backend not running'",
+    "postinstall": "npm run setup"
+  },
+  "keywords": [
+    "yoga",
+    "terapeutico",
+    "health",
+    "wellness",
+    "pwa",
+    "firebase",
+    "express",
+    "sqlite",
+    "progressive-web-app",
+    "instructors",
+    "patients",
+    "therapy",
+    "meditation",
+    "mindfulness",
+    "rehabilitation",
+    "physiotherapy"
+  ],
+  "author": {
+    "name": "SoftZen Team",
+    "email": "team@softzen.app",
+    "url": "https://softzen.app"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/softzen/proyecto-softzen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/softzen/proyecto-softzen/issues",
+    "email": "soporte@softzen.app"
+  },
+  "homepage": "https://pagina-yoga.web.app",
+  "private": false,
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  },
+  "peerDependencies": {
+    "firebase-tools": ">=12.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "config": {
+    "firebase": {
+      "project": "pagina-yoga",
+      "hosting": {
+        "public": "frontend",
+        "rewrites": [
+          {
+            "source": "**",
+            "destination": "/index.html"
+          }
+        ]
+      }
+    },
+    "optimization": {
+      "performance": true,
+      "sustainability": true,
+      "scalability": true,
+      "lazy_loading": true,
+      "code_splitting": true,
+      "service_worker": true
+    }
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/softzen"
+  },
+  "volta": {
+    "node": "18.19.0",
+    "npm": "10.2.3"
+  }
+}

@@ -1,0 +1,167 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // === FUNCIÓN DE UTILIDAD ===
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isInstructor() {
+      return isAuthenticated() && getUserRole() == 'instructor';
+    }
+    
+    function isPatient() {
+      return isAuthenticated() && getUserRole() == 'patient';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // === USUARIOS ===
+    match /users/{userId} {
+      // Los usuarios pueden leer y escribir sus propios datos
+      allow read, write: if isOwner(userId);
+      
+      // Los instructores pueden leer datos básicos de sus pacientes
+      allow read: if isInstructor() && 
+                     userId in get(/databases/$(database)/documents/instructors/$(request.auth.uid)).data.assignedPatients;
+    }
+    
+    // === PACIENTES ===
+    match /patients/{patientId} {
+      // Los pacientes pueden leer sus propios datos
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == resource.data.userId;
+      
+      // Los instructores pueden acceder a datos de sus pacientes asignados
+      allow read, write: if isInstructor() && 
+                            request.auth.uid == resource.data.instructorId;
+      
+      // Crear nuevo paciente (solo instructores)
+      allow create: if isInstructor() && 
+                       request.auth.uid == request.resource.data.instructorId;
+    }
+    
+    // === INSTRUCTORES ===
+    match /instructors/{instructorId} {
+      // Los instructores pueden leer y actualizar sus propios datos
+      allow read, write: if isOwner(instructorId);
+      
+      // Los pacientes pueden leer datos básicos de su instructor asignado
+      allow read: if isPatient() && 
+                     request.auth.uid in resource.data.assignedPatients;
+    }
+    
+    // === SESIONES ===
+    match /sessions/{sessionId} {
+      // Los pacientes pueden acceder a sus propias sesiones
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == resource.data.patientId;
+      
+      // Los instructores pueden acceder a sesiones de sus pacientes
+      allow read, write: if isInstructor() && 
+                            request.auth.uid == resource.data.instructorId;
+      
+      // Crear nueva sesión
+      allow create: if isAuthenticated() && (
+        (isPatient() && request.auth.uid == request.resource.data.patientId) ||
+        (isInstructor() && request.auth.uid == request.resource.data.instructorId)
+      );
+    }
+    
+    // === SERIES TERAPÉUTICAS ===
+    match /therapy_series/{seriesId} {
+      // Lectura: todos los usuarios autenticados
+      allow read: if isAuthenticated();
+      
+      // Escritura: solo instructores y admins
+      allow write: if isInstructor() || isAdmin();
+      
+      // Los instructores solo pueden modificar sus propias series
+      allow update, delete: if isInstructor() && 
+                               request.auth.uid == resource.data.instructorId;
+    }
+    
+    // === POSTURAS ===
+    match /postures/{postureId} {
+      // Lectura: todos los usuarios autenticados
+      allow read: if isAuthenticated();
+      
+      // Escritura: solo instructores y admins
+      allow write: if isInstructor() || isAdmin();
+    }
+    
+    // === ANALYTICS ===
+    match /analytics/{analyticsId} {
+      // Los instructores pueden acceder a sus propias analíticas
+      allow read, write: if isInstructor() && 
+                            request.auth.uid == resource.data.instructorId;
+      
+      // Los pacientes pueden acceder a sus propias analíticas
+      allow read: if isPatient() && 
+                     request.auth.uid == resource.data.patientId;
+    }
+    
+    // === NOTIFICACIONES ===
+    match /notifications/{notificationId} {
+      // Los usuarios pueden leer sus propias notificaciones
+      allow read: if isAuthenticated() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Solo el sistema puede crear notificaciones
+      allow create: if isAdmin();
+      
+      // Los usuarios pueden marcar como leídas sus notificaciones
+      allow update: if isAuthenticated() && 
+                       request.auth.uid == resource.data.userId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt', 'isRead']);
+    }
+    
+    // === CONFIGURACIÓN GLOBAL ===
+    match /config/{configId} {
+      // Lectura: todos los usuarios autenticados
+      allow read: if isAuthenticated();
+      
+      // Escritura: solo administradores
+      allow write: if isAdmin();
+    }
+    
+    // === ARCHIVOS TEMPORALES ===
+    match /temp/{tempId} {
+      // Los usuarios pueden crear y leer sus propios archivos temporales
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == resource.data.userId;
+      
+      // Auto-eliminación después de 24 horas
+      allow delete: if isAuthenticated();
+    }
+    
+    // === LOGS DE ACTIVIDAD ===
+    match /activity_logs/{logId} {
+      // Solo lectura para el propietario
+      allow read: if isAuthenticated() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Solo el sistema puede crear logs
+      allow create: if isAuthenticated();
+    }
+    
+    // === REGLAS DE SEGURIDAD ADICIONALES ===
+    
+    // Prevenir acceso a cualquier otra colección no especificada
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

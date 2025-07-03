@@ -3,420 +3,784 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoga Terapéutico Online</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧘‍♀️</text></svg>">
+    <title>SoftZen - Yoga Terapéutico Optimizado</title>
+    
+    <!-- Optimizaciones de rendimiento y SEO -->
+    <meta name="description" content="SoftZen - Plataforma de yoga terapéutico optimizada para instructores y pacientes. Rendimiento, sostenibilidad y escalabilidad.">
+    <meta name="keywords" content="yoga, terapéutico, instructores, pacientes, salud, bienestar">
+    <meta name="author" content="SoftZen Team">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Preconnect para mejorar rendimiento -->
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://pagina-yoga.firebaseapp.com">
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    
+    <!-- PWA Configuration Corregida -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SoftZen">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.svg">
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon optimizado -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-32x32.svg">
+    
+    <!-- Estilos optimizados -->
+    <link rel="stylesheet" href="/styles.css">
+    
+    <!-- Firebase SDK v9 Compat (Carga optimizada y controlada) -->
+    <script>
+        // Control de carga de Firebase para evitar conflictos
+        window.FIREBASE_LOAD_START = performance.now();
+        console.log('📦 Iniciando carga controlada de Firebase SDK...');
+    </script>
+    
+    <!-- Core Firebase (orden específico para evitar problemas) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    
+    <!-- Performance monitoring de forma no bloqueante -->
+    <script>
+        // Cargar Performance de forma completamente opcional y segura
+        (function() {
+            try {
+                const script = document.createElement('script');
+                script.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-performance-compat.js';
+                script.async = true;
+                script.defer = true;
+                script.onerror = function() {
+                    console.warn('⚠️ Firebase Performance no disponible - posiblemente bloqueado por ad-blocker');
+                };
+                script.onload = function() {
+                    console.log('📊 Firebase Performance cargado exitosamente');
+                };
+                document.head.appendChild(script);
+            } catch (error) {
+                console.warn('⚠️ Error cargando Firebase Performance:', error.message);
+            }
+        })();
+        
+        // Verificar carga completa de Firebase
+        window.addEventListener('load', () => {
+            const loadTime = performance.now() - window.FIREBASE_LOAD_START;
+            console.log(`📦 Firebase SDK cargado en ${loadTime.toFixed(2)}ms`);
+        });
+    </script>
+    
+    <!-- Configuración crítica inline para rendimiento -->
+    <script>
+        // Configuración de rendimiento crítico mejorada
+        window.SOFTZEN_PERFORMANCE = {
+            startTime: performance.now(),
+            criticalResourcesLoaded: false,
+            firebaseReady: false,
+            appReady: false
+        };
+        
+        // Detectar dispositivo para optimizaciones
+        window.SOFTZEN_DEVICE = {
+            isMobile: /Mobi|Android/i.test(navigator.userAgent),
+            isTablet: /Tablet|iPad/i.test(navigator.userAgent),
+            isTouch: 'ontouchstart' in window,
+            connection: navigator.connection?.effectiveType || 'unknown',
+            memory: navigator.deviceMemory || 4,
+            cores: navigator.hardwareConcurrency || 4
+        };
+        
+        // Configuración de lazy loading adaptativa
+        window.SOFTZEN_LAZY_CONFIG = {
+            rootMargin: window.SOFTZEN_DEVICE.isMobile ? '100px' : '50px',
+            threshold: window.SOFTZEN_DEVICE.isMobile ? 0.05 : 0.1,
+            enableLazyImages: true,
+            enableLazyModules: !window.SOFTZEN_DEVICE.isMobile || window.SOFTZEN_DEVICE.memory >= 4
+        };
+        
+        // Prevenir errores de inicialización
+        window.SOFTZEN_ERROR_COUNT = 0;
+        window.SOFTZEN_MAX_ERRORS = 5;
+        
+        console.log('🚀 SoftZen - Configuración crítica cargada');
+        console.log('📱 Dispositivo detectado:', window.SOFTZEN_DEVICE);
+    </script>
 </head>
 <body>
-    <div id="app">
-        <!-- Loading screen -->
-        <div id="loading" class="loading-screen">
+    <!-- Loading Screen Optimizado y Funcional -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-container">
+            <div class="loading-logo">🧘‍♀️</div>
+            <h1 class="loading-title">SoftZen</h1>
+            <p class="loading-subtitle">Yoga que transforma, cura y renueva</p>
             <div class="loading-spinner"></div>
-            <p>Cargando...</p>
-        </div>
-
-        <!-- Login/Register screen -->
-        <div id="auth-screen" class="screen hidden">
-            <div class="auth-container">
-                <div class="auth-header">
-                    <h1>🧘‍♀️ Yoga Terapéutico Online</h1>
-                    <p>Yoga que transforma, cura y renueva</p>
-                </div>
-
-                <div class="auth-tabs">
-                    <button class="tab-btn active" data-tab="login">Iniciar Sesión</button>
-                    <button class="tab-btn" data-tab="register">Registrarse</button>
-                </div>
-
-                <form id="login-form" class="auth-form">
-                    <div class="form-group">
-                        <label for="login-email">Email</label>
-                        <input type="email" id="login-email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="login-password">Contraseña</label>
-                        <input type="password" id="login-password" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Iniciar Sesión</button>
-                </form>
-
-                <form id="register-form" class="auth-form hidden">
-                    <div class="form-group">
-                        <label for="register-name">Nombre</label>
-                        <input type="text" id="register-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-email">Email</label>
-                        <input type="email" id="register-email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-password">Contraseña</label>
-                        <input type="password" id="register-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-role">Rol</label>
-                        <select id="register-role" required>
-                            <option value="instructor">Instructor</option>
-                            <option value="patient">Paciente</option>
-                        </select>
-                    </div>
-                    <div id="patient-fields" class="hidden">
-                        <div class="form-group">
-                            <label for="register-age">Edad</label>
-                            <input type="number" id="register-age" min="1" max="120">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-instructor">Instructor</label>
-                            <select id="register-instructor">
-                                <option value="">Seleccionar instructor</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-primary">Registrarse</button>
-                </form>
-                </div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="loadingProgressBar"></div>
             </div>
-
-        <!-- Instructor Dashboard -->
-        <div id="instructor-dashboard" class="screen hidden">
-            <nav class="navbar">
-                <div class="nav-brand">🧘‍♀️ Yoga Terapéutico Online</div>
-                <div class="nav-menu">
-                    <button class="nav-btn active" data-view="dashboard">📊 Dashboard</button>
-                    <button class="nav-btn" data-view="patients">👥 Pacientes</button>
-                    <button class="nav-btn" data-view="series">🧘‍♀️ Series</button>
-                    <button class="nav-btn" data-view="create-series">➕ Crear Serie</button>
-                </div>
-                <div class="nav-user">
-                    <span id="user-name"></span>
-                    <button id="logout-btn" class="btn-secondary">Cerrar Sesión</button>
-                </div>
-            </nav>
-
-            <main class="main-content">
-                <!-- Dashboard View -->
-                <div id="dashboard-view" class="view">
-                    <div class="view-header">
-                        <h2>📊 Dashboard General</h2>
-                        <div class="header-actions">
-                            <button id="refresh-dashboard-btn" class="btn-secondary">🔄 Actualizar</button>
-                            <button id="export-reports-btn" class="btn-primary">📋 Exportar Reportes</button>
-                        </div>
-                    </div>
-                    <div id="dashboard-content"></div>
-                </div>
-
-                <!-- Patients View -->
-                <div id="patients-view" class="view hidden">
-                    <div class="view-header">
-                        <h2>👥 Gestión de Pacientes</h2>
-                        <button id="add-patient-btn" class="btn-primary">➕ Agregar Paciente</button>
-                    </div>
-                    <div id="patients-list" class="cards-grid"></div>
-                </div>
-
-                <!-- Series View -->
-                <div id="series-view" class="view hidden">
-                    <div class="view-header">
-                        <h2>🧘‍♀️ Series Terapéuticas</h2>
-                        <div class="header-actions">
-                            <button class="btn-secondary" onclick="app.showView('create-series')">➕ Crear Nueva Serie</button>
-                        </div>
-                    </div>
-                    <div id="series-list" class="cards-grid"></div>
-                </div>
-
-                <!-- Create Series View -->
-                <div id="create-series-view" class="view hidden">
-                    <div class="view-header">
-                        <h2>➕ Crear Nueva Serie Terapéutica</h2>
-                        <button class="btn-secondary" onclick="app.showView('series')">⬅️ Volver a Series</button>
-                    </div>
-                    <form id="create-series-form" class="form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="series-name">Nombre de la Serie</label>
-                                <input type="text" id="series-name" required placeholder="Ej: Serie Anti-estrés Nivel 1">
-                            </div>
-                            <div class="form-group">
-                                <label for="total-sessions">Número Total de Sesiones</label>
-                                <input type="number" id="total-sessions" min="1" max="30" required placeholder="10">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="therapy-type">Tipo de Terapia</label>
-                            <select id="therapy-type" required>
-                                <option value="">Seleccionar tipo de terapia</option>
-                            </select>
-                        </div>
-                        
-                        <div id="postures-section" class="hidden">
-                            <div class="section-header">
-                                <h3>🤸‍♀️ Seleccionar Posturas</h3>
-                                <p>Haz clic en las posturas para seleccionarlas y configurar su duración</p>
-                            </div>
-                            <div id="available-postures" class="postures-grid"></div>
-                            
-                            <div class="section-header">
-                                <h3>📝 Posturas Seleccionadas</h3>
-                                <p>Revisa y ajusta la duración de cada postura seleccionada</p>
-                            </div>
-                            <div id="selected-postures" class="postures-list">
-                                <p>Selecciona posturas de la lista anterior</p>
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button type="button" class="btn-secondary" onclick="app.showView('series')">Cancelar</button>
-                            <button type="submit" class="btn-primary">✅ Crear Serie</button>
-                        </div>
-                    </form>
-                </div>
-            </main>
-        </div>
-
-        <!-- Patient Dashboard -->
-        <div id="patient-dashboard" class="screen hidden">
-            <nav class="navbar">
-                <div class="nav-brand">🧘‍♀️ Yoga Terapéutico Online</div>
-                <div class="nav-user">
-                    <span id="patient-navbar-name"></span>
-                    <button id="patient-logout-btn" class="btn-secondary">Cerrar Sesión</button>
-                </div>
-            </nav>
-
-            <main class="main-content">
-                <div id="patient-home" class="patient-view">
-                    <div class="series-info">
-                        <h2>🧘‍♀️ Mi Serie Asignada</h2>
-                        <div id="series-details"></div>
-                        <button id="start-session-btn" class="btn-primary btn-large">▶️ Iniciar Sesión</button>
-                    </div>
-                </div>
-
-                <div id="session-view" class="patient-view hidden">
-                    <div class="session-container">
-                        <div class="session-header">
-                            <h2>🧘‍♀️ Sesión en Progreso</h2>
-                            <div class="session-progress">
-                                <span id="current-posture">1</span> / <span id="total-postures">1</span>
-                            </div>
-                        </div>
-                        
-                        <div id="pre-session" class="session-stage">
-                            <div class="pre-session-content">
-                                <h3>🎯 Preparación para la Sesión</h3>
-                                <div class="preparation-steps">
-                                    <div class="step">
-                                        <span class="step-icon">🧘‍♀️</span>
-                                        <p>Busca un lugar tranquilo y coloca tu esterilla</p>
-                                    </div>
-                                    <div class="step">
-                                        <span class="step-icon">📱</span>
-                                        <p>Pon tu dispositivo en silencio para evitar distracciones</p>
-                                    </div>
-                                    <div class="step">
-                                        <span class="step-icon">💧</span>
-                                        <p>Ten agua cerca para mantenerte hidratado</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="pain-assessment">
-                                    <h4>📊 Evaluación Inicial</h4>
-                                    <p>Antes de comenzar, indica tu nivel actual de dolor o molestia:</p>
-                                    <div class="pain-scale">
-                                        <label class="scale-label">Sin dolor</label>
-                                        <input type="range" id="pain-before" min="0" max="10" value="0">
-                                        <label class="scale-label">Dolor severo</label>
-                                    </div>
-                                    <div class="pain-value">Nivel actual: <span id="pain-before-value">0</span>/10</div>
-                                </div>
-                                
-                                <button id="start-postures-btn" class="btn-primary btn-large">🚀 Comenzar Posturas</button>
-                            </div>
-                        </div>
-
-                        <div id="posture-display" class="session-stage hidden">
-                            <div class="posture-content">
-                                <div class="video-container">
-                                    <iframe id="posture-video" 
-                                            width="100%" 
-                                            height="315" 
-                                            src="" 
-                                            title="Video tutorial de yoga"
-                                            frameborder="0" 
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                            allowfullscreen>
-                                    </iframe>
-                                </div>
-                                
-                                <div class="posture-info-panel">
-                                    <div class="posture-header">
-                                        <h3 id="posture-name"></h3>
-                                        <p id="posture-sanskrit" class="sanskrit"></p>
-                                    </div>
-                                    
-                                    <div class="posture-details">
-                                        <div class="detail-section">
-                                            <h4>📝 Instrucciones:</h4>
-                                            <p id="posture-instructions"></p>
-                                        </div>
-                                        <div class="detail-section">
-                                            <h4>✨ Beneficios:</h4>
-                                            <p id="posture-benefits"></p>
-                                        </div>
-                                        <div class="detail-section">
-                                            <h4>🔧 Modificaciones:</h4>
-                                            <p id="posture-modifications"></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="posture-timer">
-                                <div class="timer-display">
-                                    <div class="timer-circle">
-                                        <span class="timer-text">
-                                            <span id="timer-minutes">00</span>:<span id="timer-seconds">00</span>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="timer-controls">
-                                    <button id="pause-timer-btn" class="btn-secondary">⏸️ Pausar</button>
-                                    <button id="next-posture-btn" class="btn-primary">Siguiente Postura ➡️</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="post-session" class="session-stage hidden">
-                            <div class="completion-content">
-                                <div class="completion-header">
-                                    <div class="completion-icon">🎉</div>
-                                    <h3>¡Excelente Sesión Completada!</h3>
-                                    <p>Has terminado todas las posturas de esta sesión.</p>
-                                </div>
-                                
-                                <div class="post-assessment">
-                                    <h4>📊 Evaluación Final</h4>
-                                    <div class="form-group">
-                                        <label>¿Cómo te sientes ahora? Indica tu nivel de dolor/molestia:</label>
-                                        <div class="pain-scale">
-                                            <label class="scale-label">Sin dolor</label>
-                                            <input type="range" id="pain-after" min="0" max="10" value="0">
-                                            <label class="scale-label">Dolor severo</label>
-                                        </div>
-                                        <div class="pain-value">Nivel actual: <span id="pain-after-value">0</span>/10</div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="session-comments">💭 Comparte tu experiencia:</label>
-                                        <textarea id="session-comments" required placeholder="Describe cómo te sentiste durante y después de la sesión. ¿Notaste alguna mejora? ¿Hubo alguna postura que te resultó especialmente beneficiosa?"></textarea>
-                                    </div>
-                                </div>
-                                
-                                <button id="complete-session-btn" class="btn-primary btn-large">✅ Completar Sesión</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-
-        <!-- Modals -->
-        
-        <!-- Patient Modal -->
-        <div id="patient-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="patient-modal-title">Agregar Paciente</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <form id="patient-form">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="patient-name">Nombre Completo</label>
-                            <input type="text" id="patient-name" required placeholder="Ej: María García López">
-                        </div>
-                        <div class="form-group">
-                            <label for="patient-email">Email</label>
-                            <input type="email" id="patient-email" required placeholder="maria@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="patient-age">Edad</label>
-                            <input type="number" id="patient-age" min="1" max="120" required placeholder="35">
-                        </div>
-                        <div class="form-group">
-                            <label for="patient-condition">Condición/Diagnóstico</label>
-                            <textarea id="patient-condition" placeholder="Describe la condición específica del paciente, síntomas principales y cualquier limitación física..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn-secondary modal-cancel">Cancelar</button>
-                        <button type="submit" class="btn-primary">💾 Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Assign Series Modal -->
-        <div id="assign-series-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>📋 Asignar Serie Terapéutica</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="assignment-info">
-                        <p>Selecciona una serie terapéutica para asignar al paciente. La serie determinará las posturas y el plan de sesiones.</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="series-select">Series Disponibles:</label>
-                        <select id="series-select" required>
-                            <option value="">Seleccionar serie</option>
-                        </select>
-                    </div>
-                    <div id="selected-series-preview"></div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary modal-cancel">Cancelar</button>
-                    <button id="confirm-assign-btn" class="btn-primary">✅ Asignar Serie</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Patient Sessions Modal -->
-        <div id="patient-sessions-modal" class="modal hidden">
-            <div class="modal-content large-modal">
-                <div class="modal-header">
-                    <h3>📊 Historial de Sesiones</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="sessions-list"></div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary modal-cancel">Cerrar</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Patient Details Modal -->
-        <div id="patient-details-modal" class="modal hidden">
-            <div class="modal-content large-modal">
-                <div class="modal-header">
-                    <h3>👤 Detalles del Paciente</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="patient-details-content"></div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary modal-cancel">Cerrar</button>
-                </div>
-            </div>
+            <p class="loading-message" id="loadingMessage">Iniciando SoftZen...</p>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Aplicación Principal -->
+    <div id="app" class="app" style="display: none;">
+        <!-- Header Optimizado y Funcional -->
+        <header class="header">
+            <div class="header-container">
+                <div class="header-brand">
+                    <span class="header-logo">🧘‍♀️</span>
+                    <h1 class="header-title">SoftZen</h1>
+                </div>
+                
+                <nav class="header-nav" id="headerNav">
+                    <div class="nav-user-info" id="navUserInfo" style="display: none;">
+                        <span class="user-name" id="userDisplayName">Usuario</span>
+                        <span class="user-role" id="userRole">Paciente</span>
+                        <button class="btn-logout" id="btnLogout" type="button">
+                            <span>Cerrar Sesión</span>
+                        </button>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Contenido Principal -->
+        <main class="main">
+            <!-- Auth Container Completamente Funcional -->
+            <div id="authContainer" class="auth-container">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <div class="auth-logo">🧘‍♀️</div>
+                        <h2 class="auth-title">SoftZen</h2>
+                        <p class="auth-subtitle">Yoga que transforma, cura y renueva</p>
+                    </div>
+
+                    <!-- Tabs de Autenticación -->
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login" type="button">
+                            <span>Iniciar Sesión</span>
+                        </button>
+                        <button class="auth-tab" data-tab="register" type="button">
+                            <span>Registrarse</span>
+                        </button>
+                    </div>
+
+                    <!-- Formulario de Login -->
+                    <div id="loginForm" class="auth-form active">
+                        <form id="loginFormElement" novalidate>
+                            <div class="form-group">
+                                <label for="loginEmail">Email</label>
+                                <input 
+                                    type="email" 
+                                    id="loginEmail" 
+                                    name="email" 
+                                    required 
+                                    placeholder="tu@email.com" 
+                                    autocomplete="email"
+                                    aria-describedby="loginEmailHelp"
+                                >
+                                <div id="loginEmailHelp" class="sr-only">Introduce tu dirección de email</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="loginPassword">Contraseña</label>
+                                <div class="password-input">
+                                    <input 
+                                        type="password" 
+                                        id="loginPassword" 
+                                        name="password" 
+                                        required 
+                                        placeholder="Tu contraseña" 
+                                        autocomplete="current-password"
+                                        aria-describedby="loginPasswordHelp"
+                                    >
+                                    <button type="button" class="password-toggle" tabindex="-1" aria-label="Mostrar contraseña">
+                                        <span class="show-text">👁️</span>
+                                        <span class="hide-text" style="display: none;">🙈</span>
+                                    </button>
+                                </div>
+                                <div id="loginPasswordHelp" class="sr-only">Introduce tu contraseña</div>
+                                <div class="password-forgot">
+                                    <a href="#" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary auth-submit" id="btnLogin">
+                                <span class="btn-text">Iniciar Sesión</span>
+                                <span class="btn-loading" style="display: none;">
+                                    <span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
+                                    Iniciando...
+                                </span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Formulario de Registro -->
+                    <div id="registerForm" class="auth-form">
+                        <form id="registerFormElement" novalidate>
+                            <div class="form-group">
+                                <label for="registerName">Nombre Completo</label>
+                                <input 
+                                    type="text" 
+                                    id="registerName" 
+                                    name="name" 
+                                    required 
+                                    placeholder="Tu nombre completo" 
+                                    autocomplete="name"
+                                    aria-describedby="registerNameHelp"
+                                >
+                                <div id="registerNameHelp" class="sr-only">Introduce tu nombre completo</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="registerEmail">Email</label>
+                                <input 
+                                    type="email" 
+                                    id="registerEmail" 
+                                    name="email" 
+                                    required 
+                                    placeholder="tu@email.com" 
+                                    autocomplete="email"
+                                    aria-describedby="registerEmailHelp"
+                                >
+                                <div id="registerEmailHelp" class="sr-only">Introduce tu dirección de email</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="registerPassword">Contraseña</label>
+                                <div class="password-input">
+                                    <input 
+                                        type="password" 
+                                        id="registerPassword" 
+                                        name="password" 
+                                        required 
+                                        placeholder="Mínimo 6 caracteres" 
+                                        autocomplete="new-password"
+                                        aria-describedby="registerPasswordHelp"
+                                    >
+                                    <button type="button" class="password-toggle" tabindex="-1" aria-label="Mostrar contraseña">
+                                        <span class="show-text">👁️</span>
+                                        <span class="hide-text" style="display: none;">🙈</span>
+                                    </button>
+                                </div>
+                                <div id="registerPasswordHelp" class="sr-only">Mínimo 6 caracteres</div>
+                                <div class="password-strength" id="passwordStrength" style="display: none;"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="registerRole">Tipo de Usuario</label>
+                                <select id="registerRole" name="role" required aria-describedby="registerRoleHelp">
+                                    <option value="">Selecciona tu rol</option>
+                                    <option value="patient">Paciente</option>
+                                    <option value="instructor">Instructor</option>
+                                </select>
+                                <div id="registerRoleHelp" class="sr-only">Selecciona si eres paciente o instructor</div>
+                            </div>
+
+                            <div class="form-group instructor-only" style="display: none;" id="instructorFields">
+                                <label for="registerSpecialty">Especialidad</label>
+                                <select id="registerSpecialty" name="specialty" aria-describedby="registerSpecialtyHelp">
+                                    <option value="">Selecciona tu especialidad</option>
+                                    <option value="hatha">Hatha Yoga</option>
+                                    <option value="vinyasa">Vinyasa</option>
+                                    <option value="therapeutic">Yoga Terapéutico</option>
+                                    <option value="yin">Yin Yoga</option>
+                                    <option value="restorative">Yoga Restaurativo</option>
+                                    <option value="meditation">Meditación</option>
+                                    <option value="breathing">Técnicas de Respiración</option>
+                                </select>
+                                <div id="registerSpecialtyHelp" class="sr-only">Opcional: selecciona tu especialidad como instructor</div>
+                            </div>
+
+                            <button type="submit" class="btn-primary auth-submit" id="btnRegister">
+                                <span class="btn-text">Registrarse</span>
+                                <span class="btn-loading" style="display: none;">
+                                    <span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
+                                    Registrando...
+                                </span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Credenciales de Demo Mejoradas -->
+                    <div class="auth-demo">
+                        <h4>🎮 Credenciales de Demostración:</h4>
+                        <div class="demo-credentials">
+                            <div class="demo-credential">
+                                <strong>🧑‍🏫 Instructor:</strong><br>
+                                <strong>Email:</strong> <code>admin@softzen.com</code><br>
+                                <strong>Contraseña:</strong> <code>SoftZen2024!</code>
+                            </div>
+                            <div class="demo-credential">
+                                <strong>🧘‍♀️ Paciente:</strong><br>
+                                <strong>Email:</strong> <code>paciente@softzen.com</code><br>
+                                <strong>Contraseña:</strong> <code>SoftZen2024!</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Container Mejorado -->
+            <div id="dashboardContainer" class="dashboard-container" style="display: none;">
+                <div id="dashboard-content">
+                    <!-- El contenido del dashboard se carga dinámicamente por JavaScript -->
+                    <div class="dashboard-placeholder">
+                        <div class="loading-spinner"></div>
+                        <p>Cargando dashboard...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer Optimizado -->
+        <footer class="footer">
+            <div class="footer-container">
+                <p class="footer-text">
+                    © 2025 SoftZen - Yoga Terapéutico Optimizado | 
+                    <span id="connectionStatus">🟢 Online</span> |
+                    <span id="performanceInfo">⚡ Optimizado</span>
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Notifications Container -->
+    <div id="notifications-container" class="notifications-container" aria-live="polite"></div>
+
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator" style="display: none;" role="alert">
+        <span>🔌 Sin conexión - Trabajando offline</span>
+    </div>
+
+    <!-- Scripts Core (Critical Path) -->
+    <script>
+        // ===================================================================
+        // SISTEMA DE CARGA COMPLETAMENTE OPTIMIZADO Y FUNCIONAL
+        // ===================================================================
+        
+        window.SOFTZEN_LOADER = {
+            progress: 0,
+            stages: [
+                'Iniciando sistema...',
+                'Cargando Firebase...',
+                'Configurando servicios...',
+                'Verificando autenticación...',
+                'Preparando interfaz...',
+                'Aplicando optimizaciones...',
+                'Finalizando carga...'
+            ],
+            currentStage: 0,
+            isCompleted: false,
+            
+            updateProgress(percentage, message) {
+                this.progress = Math.min(100, Math.max(0, percentage));
+                const progressBar = document.getElementById('loadingProgressBar');
+                const messageEl = document.getElementById('loadingMessage');
+                
+                if (progressBar) {
+                    progressBar.style.width = this.progress + '%';
+                }
+                
+                if (messageEl && message) {
+                    messageEl.textContent = message;
+                }
+                
+                console.log(`📊 Carga: ${this.progress}% - ${message}`);
+                
+                // Actualizar performance tracking
+                if (window.SOFTZEN_PERFORMANCE) {
+                    window.SOFTZEN_PERFORMANCE.loadingProgress = this.progress;
+                }
+            },
+            
+            nextStage() {
+                if (this.currentStage < this.stages.length - 1) {
+                    this.currentStage++;
+                    const percentage = ((this.currentStage + 1) / this.stages.length) * 100;
+                    this.updateProgress(percentage, this.stages[this.currentStage]);
+                    return true;
+                }
+                return false;
+            },
+            
+            complete() {
+                if (this.isCompleted) return;
+                
+                this.isCompleted = true;
+                this.updateProgress(100, 'SoftZen listo');
+                
+                // Performance tracking
+                if (window.SOFTZEN_PERFORMANCE) {
+                    window.SOFTZEN_PERFORMANCE.loadCompleteTime = performance.now();
+                    window.SOFTZEN_PERFORMANCE.totalLoadTime = 
+                        window.SOFTZEN_PERFORMANCE.loadCompleteTime - window.SOFTZEN_PERFORMANCE.startTime;
+                }
+                
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loadingScreen');
+                    const app = document.getElementById('app');
+                    
+                    if (loadingScreen && app) {
+                        // Animación suave de salida
+                        loadingScreen.style.transition = 'opacity 0.5s ease-out';
+                        loadingScreen.style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                            app.style.display = 'flex';
+                            
+                            // Fade in del app
+                            app.style.opacity = '0';
+                            app.style.transition = 'opacity 0.3s ease-in';
+                            
+                            requestAnimationFrame(() => {
+                                app.style.opacity = '1';
+                            });
+                            
+                            // Trigger de inicialización de la app
+                            window.dispatchEvent(new CustomEvent('appReady', {
+                                detail: {
+                                    loadTime: window.SOFTZEN_PERFORMANCE?.totalLoadTime,
+                                    timestamp: new Date().toISOString()
+                                }
+                            }));
+                            
+                            console.log('🎉 SoftZen completamente cargado y listo');
+                            
+                        }, 500);
+                    }
+                }, 300);
+            },
+            
+            // Método para manejar errores durante la carga
+            handleError(error, stage) {
+                console.error(`❌ Error en etapa "${stage}":`, error);
+                window.SOFTZEN_ERROR_COUNT = (window.SOFTZEN_ERROR_COUNT || 0) + 1;
+                
+                if (window.SOFTZEN_ERROR_COUNT > window.SOFTZEN_MAX_ERRORS) {
+                    console.error('🚨 Demasiados errores, activando modo de emergencia');
+                    this.updateProgress(100, 'Activando modo de emergencia...');
+                    this.complete();
+                    return;
+                }
+                
+                // Continuar con la siguiente etapa en caso de error no crítico
+                this.updateProgress(this.progress + 10, `Error en ${stage}, continuando...`);
+            }
+        };
+        
+        // Inicializar progreso
+        window.SOFTZEN_LOADER.updateProgress(10, 'Iniciando sistema...');
+    </script>
+
+    <!-- Firebase Configuration (Critical) -->
+    <script type="module" src="/js/firebase-config.js"></script>
+    
+    <!-- Core Services -->
+    <script type="module" src="/js/firebase-service.js"></script>
+    <script type="module" src="/js/utils.js"></script>
+    
+    <!-- Application Core -->
+    <script type="module" src="/app.js"></script>
+    
+    <!-- Diagnostic System -->
+    <script src="/js/diagnostic.js"></script>
+    
+    <!-- System Verifier -->
+    <script src="/js/system-verifier.js"></script>
+    
+    <!-- System Initializer (NUEVO) -->
+    <script src="/js/system-initializer.js"></script>
+    
+    <!-- Enhanced Event Handlers -->
+    <script>
+        // ===================================================================
+        // MANEJADORES DE EVENTOS MEJORADOS
+        // ===================================================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 DOM completamente cargado');
+            
+            // Configurar toggle de contraseñas
+            setupPasswordToggles();
+            
+            // Configurar tabs de autenticación
+            setupAuthTabs();
+            
+            // Configurar campos dinámicos
+            setupDynamicFields();
+            
+            // Configurar validación en tiempo real
+            setupFormValidation();
+        });
+        
+        function setupPasswordToggles() {
+            document.querySelectorAll('.password-toggle').forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const input = toggle.previousElementSibling;
+                    const showText = toggle.querySelector('.show-text');
+                    const hideText = toggle.querySelector('.hide-text');
+                    
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        showText.style.display = 'none';
+                        hideText.style.display = 'inline';
+                        toggle.setAttribute('aria-label', 'Ocultar contraseña');
+                    } else {
+                        input.type = 'password';
+                        showText.style.display = 'inline';
+                        hideText.style.display = 'none';
+                        toggle.setAttribute('aria-label', 'Mostrar contraseña');
+                    }
+                });
+            });
+        }
+        
+        function setupAuthTabs() {
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    const tabType = tab.dataset.tab;
+                    if (!tabType) return;
+                    
+                    // Actualizar tabs activos
+                    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Mostrar formulario correspondiente
+                    document.querySelectorAll('.auth-form').forEach(form => {
+                        form.classList.toggle('active', form.id === `${tabType}Form`);
+                    });
+                    
+                    // Focus en el primer input del formulario activo
+                    const activeForm = document.querySelector('.auth-form.active');
+                    if (activeForm) {
+                        const firstInput = activeForm.querySelector('input');
+                        if (firstInput) {
+                            setTimeout(() => firstInput.focus(), 100);
+                        }
+                    }
+                });
+            });
+        }
+        
+        function setupDynamicFields() {
+            const roleSelect = document.getElementById('registerRole');
+            const instructorFields = document.getElementById('instructorFields');
+            
+            if (roleSelect && instructorFields) {
+                roleSelect.addEventListener('change', (e) => {
+                    const isInstructor = e.target.value === 'instructor';
+                    instructorFields.style.display = isInstructor ? 'block' : 'none';
+                    
+                    // Actualizar required del campo specialty
+                    const specialtySelect = document.getElementById('registerSpecialty');
+                    if (specialtySelect) {
+                        specialtySelect.required = isInstructor;
+                    }
+                });
+            }
+        }
+        
+        function setupFormValidation() {
+            // Validación en tiempo real para passwords
+            const passwordInputs = document.querySelectorAll('input[type="password"]');
+            passwordInputs.forEach(input => {
+                input.addEventListener('input', (e) => {
+                    if (input.id === 'registerPassword') {
+                        validatePasswordStrength(input);
+                    }
+                });
+            });
+            
+            // Validación de emails
+            const emailInputs = document.querySelectorAll('input[type="email"]');
+            emailInputs.forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    validateEmail(input);
+                });
+            });
+        }
+        
+        function validatePasswordStrength(input) {
+            const strengthDiv = document.getElementById('passwordStrength');
+            if (!strengthDiv) return;
+            
+            const password = input.value;
+            const strength = calculatePasswordStrength(password);
+            
+            strengthDiv.style.display = password.length > 0 ? 'block' : 'none';
+            strengthDiv.className = `password-strength ${strength.level}`;
+            strengthDiv.innerHTML = `
+                <div class="strength-text">Seguridad: ${strength.text}</div>
+                <div class="strength-bar">
+                    <div class="strength-fill ${strength.level}" style="width: ${strength.percentage}%"></div>
+                </div>
+            `;
+        }
+        
+        function calculatePasswordStrength(password) {
+            let score = 0;
+            
+            if (password.length >= 6) score += 1;
+            if (password.length >= 8) score += 1;
+            if (/[a-z]/.test(password)) score += 1;
+            if (/[A-Z]/.test(password)) score += 1;
+            if (/[0-9]/.test(password)) score += 1;
+            if (/[^A-Za-z0-9]/.test(password)) score += 1;
+            
+            const levels = [
+                { level: 'very-weak', text: 'Muy débil', percentage: 10 },
+                { level: 'weak', text: 'Débil', percentage: 25 },
+                { level: 'fair', text: 'Regular', percentage: 50 },
+                { level: 'good', text: 'Buena', percentage: 75 },
+                { level: 'strong', text: 'Fuerte', percentage: 90 },
+                { level: 'very-strong', text: 'Muy fuerte', percentage: 100 }
+            ];
+            
+            return levels[Math.min(score, levels.length - 1)];
+        }
+        
+        function validateEmail(input) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const isValid = emailRegex.test(input.value);
+            
+            input.classList.toggle('error', !isValid && input.value.length > 0);
+            
+            return isValid;
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('⚠️ Service Worker no pudo registrarse:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Performance Monitoring -->
+    <script>
+        // ===================================================================
+        // MONITOREO DE RENDIMIENTO MEJORADO
+        // ===================================================================
+        
+        window.addEventListener('load', () => {
+            if ('performance' in window) {
+                setTimeout(() => {
+                    try {
+                        const perfData = performance.getEntriesByType('navigation')[0];
+                        const loadTime = perfData.loadEventEnd - perfData.fetchStart;
+                        const domReady = perfData.domContentLoadedEventEnd - perfData.fetchStart;
+                        const firstPaint = performance.getEntriesByType('paint').find(p => p.name === 'first-contentful-paint');
+                        
+                        const metrics = {
+                            loadTime: `${loadTime.toFixed(1)}ms`,
+                            domReady: `${domReady.toFixed(1)}ms`,
+                            firstPaint: firstPaint ? `${firstPaint.startTime.toFixed(1)}ms` : 'N/A'
+                        };
+                        
+                        console.log('📊 Métricas de rendimiento:', metrics);
+                        
+                        // Actualizar indicador de rendimiento
+                        const perfInfo = document.getElementById('performanceInfo');
+                        if (perfInfo) {
+                            const indicator = loadTime < 2000 ? '⚡ Excelente' : 
+                                            loadTime < 4000 ? '🚀 Bueno' : 
+                                            loadTime < 6000 ? '⏱️ Aceptable' : '🐌 Lento';
+                            perfInfo.textContent = indicator;
+                        }
+                        
+                        // Almacenar métricas para analytics
+                        if (window.SOFTZEN_PERFORMANCE) {
+                            window.SOFTZEN_PERFORMANCE.metrics = metrics;
+                            window.SOFTZEN_PERFORMANCE.loadTime = loadTime;
+                        }
+                        
+                    } catch (error) {
+                        console.warn('⚠️ Error calculando métricas de rendimiento:', error);
+                    }
+                }, 1500);
+            }
+        });
+        
+        // Monitoreo de conexión mejorado
+        function updateConnectionStatus(status) {
+            const statusEl = document.getElementById('connectionStatus');
+            const offlineIndicator = document.getElementById('offlineIndicator');
+            
+            if (statusEl) {
+                const statusConfig = {
+                    online: { text: '🟢 Online', color: '#22c55e' },
+                    offline: { text: '🔴 Offline', color: '#ef4444' },
+                    slow: { text: '🟡 Conexión lenta', color: '#f59e0b' },
+                    reconnecting: { text: '🔄 Reconectando', color: '#6b7280' }
+                };
+                
+                const config = statusConfig[status] || statusConfig.offline;
+                statusEl.textContent = config.text;
+                statusEl.style.color = config.color;
+            }
+            
+            if (offlineIndicator) {
+                offlineIndicator.style.display = status === 'offline' ? 'block' : 'none';
+            }
+        }
+        
+        window.addEventListener('online', () => {
+            updateConnectionStatus('online');
+            console.log('🌐 Conexión restaurada');
+        });
+        
+        window.addEventListener('offline', () => {
+            updateConnectionStatus('offline');
+            console.log('📱 Trabajando offline');
+        });
+        
+        // Detectar conexión lenta
+        if ('connection' in navigator) {
+            const connection = navigator.connection;
+            
+            function checkConnectionSpeed() {
+                if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+                    updateConnectionStatus('slow');
+                } else if (navigator.onLine) {
+                    updateConnectionStatus('online');
+                }
+            }
+            
+            connection.addEventListener('change', checkConnectionSpeed);
+            checkConnectionSpeed();
+        }
+        
+        // Métricas de memoria si están disponibles
+        if ('memory' in performance) {
+            const logMemoryUsage = () => {
+                const memory = performance.memory;
+                const used = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                const total = Math.round(memory.totalJSHeapSize / 1024 / 1024);
+                
+                console.log(`💾 Memoria: ${used}MB / ${total}MB`);
+                
+                // Advertir si el uso de memoria es alto
+                if (used > 100) {
+                    console.warn('⚠️ Alto uso de memoria detectado');
+                }
+            };
+            
+            // Log inicial y luego cada 5 minutos
+            setTimeout(logMemoryUsage, 5000);
+            setInterval(logMemoryUsage, 5 * 60 * 1000);
+        }
+    </script>
 </body>
 </html>

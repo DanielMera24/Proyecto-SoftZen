@@ -1,0 +1,71 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Funciones helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isValidImageFile() {
+      return request.resource.contentType.matches('image/.*') &&
+             request.resource.size < 5 * 1024 * 1024; // 5MB max
+    }
+    
+    function isValidVideoFile() {
+      return request.resource.contentType.matches('video/.*') &&
+             request.resource.size < 50 * 1024 * 1024; // 50MB max
+    }
+
+    // Imágenes de perfil de usuarios
+    match /profile_images/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageFile();
+      allow delete: if isOwner(userId);
+    }
+    
+    // Imágenes de series terapéuticas
+    match /series_images/{instructorId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(instructorId) && isValidImageFile();
+      allow delete: if isOwner(instructorId);
+    }
+    
+    // Imágenes de sesiones (antes/después)
+    match /session_images/{patientId}/{sessionId}/{fileName} {
+      allow read: if isOwner(patientId) || 
+                     exists(/databases/(default)/documents/patients/$(patientId)) && 
+                     get(/databases/(default)/documents/patients/$(patientId)).data.instructorId == request.auth.uid;
+      allow write: if isOwner(patientId) && isValidImageFile();
+      allow delete: if isOwner(patientId);
+    }
+    
+    // Imágenes de posturas
+    match /posture_images/{instructorId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(instructorId) && isValidImageFile();
+      allow delete: if isOwner(instructorId);
+    }
+    
+    // Videos de posturas (solo instructores)
+    match /posture_videos/{instructorId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(instructorId) && isValidVideoFile();
+      allow delete: if isOwner(instructorId);
+    }
+    
+    // Exportaciones de datos
+    match /exports/{userId}/{fileName} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Recursos públicos (logos, etc.)
+    match /public/{fileName} {
+      allow read: if true;
+      allow write: if false; // Solo administradores
+    }
+  }
+}

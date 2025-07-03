@@ -1,7 +1,7 @@
 import { getDatabase } from '../config/database.js';
 import { getAllTherapyTypes, getTherapyType } from '../models/predefinedTherapy.js';
 
-export async function getTherapyTypes(req, res) {
+const getTherapyTypes = async (req, res) => {
     try {
         const therapyTypes = getAllTherapyTypes();
         res.json({
@@ -17,9 +17,9 @@ export async function getTherapyTypes(req, res) {
             code: 'GET_THERAPY_TYPES_ERROR'
         });
     }
-}
+};
 
-export async function getSeries(req, res) {
+const getSeries = async (req, res) => {
     try {
         if (req.user.role !== 'instructor') {
             return res.status(403).json({
@@ -67,9 +67,9 @@ export async function getSeries(req, res) {
             code: 'GET_SERIES_ERROR'
         });
     }
-}
+};
 
-export async function getSingleSeries(req, res) {
+const getSingleSeries = async (req, res) => {
     try {
         const seriesId = parseInt(req.params.id);
         
@@ -141,9 +141,9 @@ export async function getSingleSeries(req, res) {
             code: 'GET_SINGLE_SERIES_ERROR'
         });
     }
-}
+};
 
-export async function createSeries(req, res) {
+const createSeries = async (req, res) => {
     try {
         if (req.user.role !== 'instructor') {
             return res.status(403).json({
@@ -281,9 +281,9 @@ export async function createSeries(req, res) {
             code: 'CREATE_SERIES_ERROR'
         });
     }
-}
+};
 
-export async function updateSeries(req, res) {
+const updateSeries = async (req, res) => {
     try {
         if (req.user.role !== 'instructor') {
             return res.status(403).json({
@@ -416,9 +416,9 @@ export async function updateSeries(req, res) {
             code: 'UPDATE_SERIES_ERROR'
         });
     }
-}
+};
 
-export async function deleteSeries(req, res) {
+const deleteSeries = async (req, res) => {
     try {
         if (req.user.role !== 'instructor') {
             return res.status(403).json({
@@ -501,9 +501,9 @@ export async function deleteSeries(req, res) {
             code: 'DELETE_SERIES_ERROR'
         });
     }
-}
+};
 
-export async function duplicateSeries(req, res) {
+const duplicateSeries = async (req, res) => {
     try {
         if (req.user.role !== 'instructor') {
             return res.status(403).json({
@@ -597,4 +597,15 @@ export async function duplicateSeries(req, res) {
             code: 'DUPLICATE_SERIES_ERROR'
         });
     }
-}
+};
+
+// Export default del controlador
+export default {
+    getTherapyTypes,
+    getSeries,
+    getSingleSeries,
+    createSeries,
+    updateSeries,
+    deleteSeries,
+    duplicateSeries
+};

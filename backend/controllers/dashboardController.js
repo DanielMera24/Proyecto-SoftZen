@@ -1,6 +1,18 @@
 import { getDatabase } from '../config/database.js';
 
-export async function getInstructorDashboard(req, res) {
+/**
+ * DashboardController - Controlador optimizado para dashboards
+ * Enfoque en rendimiento, sostenibilidad y escalabilidad
+ */
+
+// Cache para consultas de dashboard (en producción usar Redis)
+const dashboardCache = new Map();
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutos para dashboards
+
+/**
+ * Dashboard del instructor con métricas avanzadas
+ */
+const getInstructorDashboard = async (req, res) => {
   try {
     if (req.user.role !== 'instructor') {
       return res.status(403).json({
@@ -10,95 +22,127 @@ export async function getInstructorDashboard(req, res) {
     }
 
     const db = getDatabase();
+    const cacheKey = `instructor_dashboard_${req.user.id}`;
 
-    // Ejecutar todas las consultas en paralelo
+    // Verificar cache
+    const cached = dashboardCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
+    // Ejecutar todas las consultas en paralelo con optimización mejorada
     const [
       overviewStats,
       recentActivity,
       painTrends,
       therapyTypeStats,
       patientsProgress,
-      seriesStats
+      seriesStats,
+      weeklyStats,
+      topPerformingPatients
     ] = await Promise.all([
-      // Estadísticas generales
+      // Estadísticas generales optimizadas
       db.get(`
         SELECT 
           COUNT(DISTINCT p.id) as total_patients,
           COUNT(DISTINCT CASE WHEN p.assigned_series_id IS NOT NULL THEN p.id END) as active_patients,
           COUNT(DISTINCT ts.id) as total_series,
           COUNT(DISTINCT s.id) as total_sessions,
-          AVG(s.pain_before - s.pain_after) as avg_pain_improvement,
-          AVG(s.duration_minutes) as avg_session_duration,
-          AVG(s.rating) as avg_rating
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_pain_improvement,
+          COALESCE(AVG(s.duration_minutes), 0) as avg_session_duration,
+          COALESCE(AVG(s.rating), 0) as avg_rating,
+          COUNT(DISTINCT CASE WHEN s.completed_at >= date('now', '-7 days') THEN s.id END) as sessions_this_week,
+          COUNT(DISTINCT CASE WHEN p.created_at >= date('now', '-30 days') THEN p.id END) as new_patients_month
         FROM patients p
         LEFT JOIN therapy_series ts ON ts.instructor_id = ?
         LEFT JOIN sessions s ON s.patient_id = p.id
         WHERE p.instructor_id = ? AND p.is_active = 1
       `, [req.user.id, req.user.id]),
 
-      // Actividad reciente (últimas 10 sesiones)
+      // Actividad reciente (últimas 15 sesiones con más detalle)
       db.all(`
         SELECT 
           'session' as type,
+          p.id as patient_id,
           p.name as patient_name,
+          s.id as session_id,
+          s.session_number,
           s.completed_at as date,
           s.pain_before,
           s.pain_after,
-          s.session_number,
+          (s.pain_before - s.pain_after) as pain_improvement,
           s.rating,
-          ts.name as series_name
+          s.duration_minutes,
+          COALESCE(ts.name, 'Sin serie') as series_name,
+          ts.therapy_type,
+          s.comments
         FROM sessions s
         JOIN patients p ON s.patient_id = p.id
         LEFT JOIN therapy_series ts ON s.series_id = ts.id
         WHERE p.instructor_id = ?
         ORDER BY s.completed_at DESC
-        LIMIT 10
+        LIMIT 15
       `, [req.user.id]),
 
-      // Tendencias de dolor por semana (últimas 8 semanas)
+      // Tendencias de dolor por semana (últimas 12 semanas)
       db.all(`
         SELECT 
           strftime('%Y-%W', s.completed_at) as week,
           strftime('%Y-%m-%d', s.completed_at, 'weekday 0', '-6 days') as week_start,
-          AVG(s.pain_before) as avg_pain_before,
-          AVG(s.pain_after) as avg_pain_after,
-          COUNT(s.id) as session_count
+          COALESCE(AVG(s.pain_before), 0) as avg_pain_before,
+          COALESCE(AVG(s.pain_after), 0) as avg_pain_after,
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COUNT(s.id) as session_count,
+          COUNT(DISTINCT p.id) as unique_patients
         FROM sessions s
         JOIN patients p ON s.patient_id = p.id
-        WHERE p.instructor_id = ? AND s.completed_at >= date('now', '-8 weeks')
+        WHERE p.instructor_id = ? AND s.completed_at >= date('now', '-12 weeks')
         GROUP BY strftime('%Y-%W', s.completed_at)
         ORDER BY week DESC
-        LIMIT 8
+        LIMIT 12
       `, [req.user.id]),
 
-      // Estadísticas por tipo de terapia
+      // Estadísticas por tipo de terapia con métricas avanzadas
       db.all(`
         SELECT 
           ts.therapy_type,
           COUNT(DISTINCT ts.id) as series_count,
           COUNT(DISTINCT p.id) as patients_count,
           COUNT(s.id) as sessions_count,
-          AVG(s.pain_before - s.pain_after) as avg_improvement,
-          AVG(s.rating) as avg_rating
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COALESCE(AVG(s.rating), 0) as avg_rating,
+          COALESCE(AVG(s.duration_minutes), 0) as avg_duration,
+          COALESCE(MAX(s.pain_before - s.pain_after), 0) as max_improvement,
+          COUNT(DISTINCT CASE WHEN s.completed_at >= date('now', '-30 days') THEN s.id END) as recent_sessions
         FROM therapy_series ts
         LEFT JOIN patients p ON p.assigned_series_id = ts.id AND p.is_active = 1
         LEFT JOIN sessions s ON s.patient_id = p.id
         WHERE ts.instructor_id = ? AND ts.is_active = 1
         GROUP BY ts.therapy_type
+        ORDER BY sessions_count DESC
       `, [req.user.id]),
 
-      // Progreso de pacientes activos
+      // Progreso de pacientes activos con métricas de adherencia
       db.all(`
         SELECT 
           p.id,
           p.name,
+          p.age,
+          p.condition,
           p.current_session,
           ts.total_sessions,
           ts.name as series_name,
           ts.therapy_type,
-          ROUND((CAST(p.current_session AS REAL) / ts.total_sessions) * 100) as progress_percentage,
+          ts.difficulty_level,
+          ROUND((CAST(p.current_session AS REAL) / NULLIF(ts.total_sessions, 0)) * 100, 0) as progress_percentage,
           MAX(s.completed_at) as last_session_date,
-          AVG(s.pain_before - s.pain_after) as avg_improvement
+          MIN(s.completed_at) as first_session_date,
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COALESCE(AVG(s.rating), 0) as avg_rating,
+          COUNT(s.id) as completed_sessions,
+          SUM(s.duration_minutes) as total_practice_time,
+          p.series_assigned_at,
+          JULIANDAY('now') - JULIANDAY(p.series_assigned_at) as days_since_assignment
         FROM patients p
         JOIN therapy_series ts ON p.assigned_series_id = ts.id
         LEFT JOIN sessions s ON s.patient_id = p.id
@@ -107,24 +151,74 @@ export async function getInstructorDashboard(req, res) {
         ORDER BY progress_percentage DESC, p.name
       `, [req.user.id]),
 
-      // Estadísticas de series
+      // Estadísticas de series con métricas de efectividad
       db.all(`
         SELECT 
           ts.id,
           ts.name,
+          ts.description,
           ts.therapy_type,
           ts.total_sessions,
+          ts.difficulty_level,
+          ts.estimated_duration,
           COUNT(DISTINCT p.id) as assigned_patients,
           COUNT(s.id) as completed_sessions,
-          AVG(s.pain_before - s.pain_after) as avg_improvement,
-          AVG(s.rating) as avg_rating,
-          ts.created_at
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COALESCE(AVG(s.rating), 0) as avg_rating,
+          COALESCE(AVG(s.duration_minutes), 0) as avg_session_duration,
+          COUNT(DISTINCT CASE WHEN p.current_session >= ts.total_sessions THEN p.id END) as completed_patients,
+          ts.created_at,
+          JULIANDAY('now') - JULIANDAY(ts.created_at) as days_since_created
         FROM therapy_series ts
         LEFT JOIN patients p ON p.assigned_series_id = ts.id AND p.is_active = 1
         LEFT JOIN sessions s ON s.patient_id = p.id
         WHERE ts.instructor_id = ? AND ts.is_active = 1
         GROUP BY ts.id
-        ORDER BY ts.created_at DESC
+        ORDER BY assigned_patients DESC, ts.created_at DESC
+      `, [req.user.id]),
+
+      // Estadísticas por día de la semana
+      db.all(`
+        SELECT 
+          CAST(strftime('%w', s.completed_at) AS INTEGER) as day_of_week,
+          CASE CAST(strftime('%w', s.completed_at) AS INTEGER)
+            WHEN 0 THEN 'Domingo'
+            WHEN 1 THEN 'Lunes'
+            WHEN 2 THEN 'Martes'
+            WHEN 3 THEN 'Miércoles'
+            WHEN 4 THEN 'Jueves'
+            WHEN 5 THEN 'Viernes'
+            WHEN 6 THEN 'Sábado'
+          END as day_name,
+          COUNT(s.id) as session_count,
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COALESCE(AVG(s.rating), 0) as avg_rating
+        FROM sessions s
+        JOIN patients p ON s.patient_id = p.id
+        WHERE p.instructor_id = ? AND s.completed_at >= date('now', '-30 days')
+        GROUP BY strftime('%w', s.completed_at)
+        ORDER BY day_of_week
+      `, [req.user.id]),
+
+      // Top 5 pacientes con mejor mejora
+      db.all(`
+        SELECT 
+          p.id,
+          p.name,
+          p.age,
+          COUNT(s.id) as total_sessions,
+          COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+          COALESCE(AVG(s.rating), 0) as avg_rating,
+          MAX(s.pain_before - s.pain_after) as best_improvement,
+          ts.name as series_name
+        FROM sessions s
+        JOIN patients p ON s.patient_id = p.id
+        LEFT JOIN therapy_series ts ON p.assigned_series_id = ts.id
+        WHERE p.instructor_id = ? AND s.completed_at >= date('now', '-30 days')
+        GROUP BY p.id
+        HAVING COUNT(s.id) >= 3
+        ORDER BY avg_improvement DESC
+        LIMIT 5
       `, [req.user.id])
     ]);
 
@@ -132,31 +226,30 @@ export async function getInstructorDashboard(req, res) {
     const processedData = {
       overview: {
         ...overviewStats,
-        avg_pain_improvement: overviewStats.avg_pain_improvement ? 
-          Math.round(overviewStats.avg_pain_improvement * 10) / 10 : 0,
-        avg_session_duration: overviewStats.avg_session_duration ? 
-          Math.round(overviewStats.avg_session_duration) : 0,
-        avg_rating: overviewStats.avg_rating ? 
-          Math.round(overviewStats.avg_rating * 10) / 10 : 0,
-        inactive_patients: overviewStats.total_patients - overviewStats.active_patients
+        avg_pain_improvement: Math.round((overviewStats.avg_pain_improvement || 0) * 10) / 10,
+        avg_session_duration: Math.round(overviewStats.avg_session_duration || 0),
+        avg_rating: Math.round((overviewStats.avg_rating || 0) * 10) / 10,
+        inactive_patients: overviewStats.total_patients - overviewStats.active_patients,
+        completion_rate: overviewStats.active_patients > 0 ? 
+          Math.round((overviewStats.sessions_this_week / overviewStats.active_patients) * 100) : 0
       },
       
       recent_activity: recentActivity.map(activity => ({
         ...activity,
-        pain_improvement: activity.pain_before - activity.pain_after,
         date_formatted: new Date(activity.date).toLocaleDateString('es-ES', {
           day: '2-digit',
           month: '2-digit',
           hour: '2-digit',
           minute: '2-digit'
-        })
+        }),
+        improvement_category: categorizeImprovement(activity.pain_improvement)
       })),
       
       pain_trends: painTrends.reverse().map(trend => ({
         ...trend,
-        avg_pain_before: Math.round(trend.avg_pain_before * 10) / 10,
-        avg_pain_after: Math.round(trend.avg_pain_after * 10) / 10,
-        improvement: Math.round((trend.avg_pain_before - trend.avg_pain_after) * 10) / 10,
+        avg_pain_before: Math.round((trend.avg_pain_before || 0) * 10) / 10,
+        avg_pain_after: Math.round((trend.avg_pain_after || 0) * 10) / 10,
+        avg_improvement: Math.round((trend.avg_improvement || 0) * 10) / 10,
         week_label: new Date(trend.week_start).toLocaleDateString('es-ES', {
           day: '2-digit',
           month: '2-digit'
@@ -165,49 +258,79 @@ export async function getInstructorDashboard(req, res) {
       
       therapy_types: therapyTypeStats.map(stat => ({
         ...stat,
-        avg_improvement: stat.avg_improvement ? 
-          Math.round(stat.avg_improvement * 10) / 10 : 0,
-        avg_rating: stat.avg_rating ? 
-          Math.round(stat.avg_rating * 10) / 10 : 0,
-        therapy_type_name: getTherapyTypeName(stat.therapy_type)
+        avg_improvement: Math.round((stat.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((stat.avg_rating || 0) * 10) / 10,
+        avg_duration: Math.round(stat.avg_duration || 0),
+        therapy_type_name: getTherapyTypeName(stat.therapy_type),
+        effectiveness_score: calculateEffectivenessScore(stat)
       })),
       
       patients_progress: patientsProgress.map(patient => ({
         ...patient,
-        avg_improvement: patient.avg_improvement ? 
-          Math.round(patient.avg_improvement * 10) / 10 : 0,
+        avg_improvement: Math.round((patient.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((patient.avg_rating || 0) * 10) / 10,
         is_completed: patient.current_session >= patient.total_sessions,
         last_session_formatted: patient.last_session_date ? 
           new Date(patient.last_session_date).toLocaleDateString('es-ES') : 'Nunca',
-        therapy_type_name: getTherapyTypeName(patient.therapy_type)
+        therapy_type_name: getTherapyTypeName(patient.therapy_type),
+        progress_percentage: patient.progress_percentage || 0,
+        adherence_score: calculateAdherenceScore(patient),
+        total_practice_hours: patient.total_practice_time ? 
+          Math.round(patient.total_practice_time / 60 * 10) / 10 : 0
       })),
       
       series_stats: seriesStats.map(series => ({
         ...series,
-        avg_improvement: series.avg_improvement ? 
-          Math.round(series.avg_improvement * 10) / 10 : 0,
-        avg_rating: series.avg_rating ? 
-          Math.round(series.avg_rating * 10) / 10 : 0,
-        usage_rate: series.assigned_patients > 0 ? 
+        avg_improvement: Math.round((series.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((series.avg_rating || 0) * 10) / 10,
+        avg_session_duration: Math.round(series.avg_session_duration || 0),
+        completion_rate: series.assigned_patients > 0 ? 
+          Math.round((series.completed_patients / series.assigned_patients) * 100) : 0,
+        usage_rate: series.assigned_patients > 0 && series.total_sessions > 0 ? 
           Math.round((series.completed_sessions / (series.assigned_patients * series.total_sessions)) * 100) : 0,
-        therapy_type_name: getTherapyTypeName(series.therapy_type)
+        therapy_type_name: getTherapyTypeName(series.therapy_type),
+        popularity_score: calculatePopularityScore(series)
+      })),
+
+      weekly_stats: weeklyStats.map(stat => ({
+        ...stat,
+        avg_improvement: Math.round((stat.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((stat.avg_rating || 0) * 10) / 10
+      })),
+
+      top_patients: topPerformingPatients.map(patient => ({
+        ...patient,
+        avg_improvement: Math.round((patient.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((patient.avg_rating || 0) * 10) / 10,
+        best_improvement: Math.round((patient.best_improvement || 0) * 10) / 10
       })),
       
-      generated_at: new Date().toISOString()
+      insights: generateInstructorInsights(overviewStats, painTrends, therapyTypeStats),
+      generated_at: new Date().toISOString(),
+      cache_expires_at: new Date(Date.now() + CACHE_TTL).toISOString()
     };
+
+    // Cachear resultado
+    dashboardCache.set(cacheKey, {
+      data: processedData,
+      timestamp: Date.now()
+    });
 
     res.json(processedData);
 
   } catch (error) {
-    console.error('Error obteniendo dashboard:', error);
+    console.error('❌ Error obteniendo dashboard del instructor:', error);
     res.status(500).json({
       error: 'Error obteniendo datos del dashboard',
-      code: 'DASHBOARD_ERROR'
+      code: 'INSTRUCTOR_DASHBOARD_ERROR'
     });
   }
-}
+};
 
-export async function getPatientDashboard(req, res) {
+/**
+ * Dashboard del paciente con métricas personalizadas
+ */
+const getPatientDashboard = async (req, res) => {
   try {
     if (req.user.role !== 'patient') {
       return res.status(403).json({
@@ -217,10 +340,29 @@ export async function getPatientDashboard(req, res) {
     }
 
     const db = getDatabase();
+    const cacheKey = `patient_dashboard_${req.user.id}`;
 
-    // Obtener información del paciente
+    // Verificar cache
+    const cached = dashboardCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
+    // Obtener información del paciente con consulta optimizada
     const patient = await db.get(`
-      SELECT p.*, ts.*, u.name as instructor_name, u.email as instructor_email
+      SELECT 
+        p.*,
+        ts.id as series_id,
+        ts.name as series_name,
+        ts.description as series_description,
+        ts.therapy_type,
+        ts.postures,
+        ts.total_sessions,
+        ts.estimated_duration,
+        ts.difficulty_level,
+        u.name as instructor_name, 
+        u.email as instructor_email,
+        u.phone as instructor_phone
       FROM patients p
       LEFT JOIN therapy_series ts ON p.assigned_series_id = ts.id
       LEFT JOIN users u ON p.instructor_id = u.id
@@ -242,104 +384,180 @@ export async function getPatientDashboard(req, res) {
         condition: patient.condition,
         instructor_name: patient.instructor_name,
         instructor_email: patient.instructor_email,
-        total_sessions_completed: patient.total_sessions_completed
+        instructor_phone: patient.instructor_phone,
+        total_sessions_completed: patient.total_sessions_completed,
+        member_since: patient.created_at
       },
       series: null,
       stats: null,
       recent_sessions: [],
-      notifications: []
+      progress_trends: [],
+      achievements: [],
+      recommendations: []
     };
 
-    if (patient.assigned_series_id) {
-      // Calcular progreso de la serie
-      const progressPercentage = Math.round((patient.current_session / patient.total_sessions) * 100);
+    if (patient.assigned_series_id && patient.series_id) {
+      // Calcular progreso de la serie con métricas avanzadas
+      const progressPercentage = patient.total_sessions > 0 ? 
+        Math.round((patient.current_session / patient.total_sessions) * 100) : 0;
       const isCompleted = patient.current_session >= patient.total_sessions;
 
       dashboardData.series = {
         id: patient.assigned_series_id,
-        name: patient.name_1 || 'Serie Asignada', // CORREGIDO: usar el nombre correcto de la serie
-        description: patient.description,
+        name: patient.series_name || 'Serie Asignada',
+        description: patient.series_description || '',
         therapy_type: patient.therapy_type,
         therapy_type_name: getTherapyTypeName(patient.therapy_type),
         postures: patient.postures ? JSON.parse(patient.postures) : [],
         total_sessions: patient.total_sessions,
         current_session: patient.current_session,
+        sessions_remaining: Math.max(0, patient.total_sessions - patient.current_session),
         progress_percentage: progressPercentage,
         is_completed: isCompleted,
         estimated_duration: patient.estimated_duration,
-        next_session: isCompleted ? null : patient.current_session + 1
+        difficulty_level: patient.difficulty_level,
+        next_session_number: isCompleted ? null : patient.current_session + 1
       };
 
-      // Obtener estadísticas de sesiones del paciente
-      const sessionStats = await db.get(`
-        SELECT 
-          COUNT(*) as total_completed,
-          AVG(pain_before) as avg_pain_before,
-          AVG(pain_after) as avg_pain_after,
-          AVG(pain_before - pain_after) as avg_improvement,
-          AVG(duration_minutes) as avg_duration,
-          AVG(rating) as avg_rating,
-          SUM(postures_completed) as total_postures_completed,
-          MIN(completed_at) as first_session,
-          MAX(completed_at) as last_session
-        FROM sessions 
-        WHERE patient_id = ?
-      `, [patient.id]);
+      // Ejecutar consultas para estadísticas del paciente
+      const [sessionStats, recentSessions, progressTrend, achievements] = await Promise.all([
+        // Estadísticas generales de sesiones
+        db.get(`
+          SELECT 
+            COUNT(*) as total_sessions,
+            COALESCE(AVG(pain_before), 0) as avg_pain_before,
+            COALESCE(AVG(pain_after), 0) as avg_pain_after,
+            COALESCE(AVG(pain_before - pain_after), 0) as avg_improvement,
+            COALESCE(AVG(rating), 0) as avg_rating,
+            COALESCE(AVG(duration_minutes), 0) as avg_duration,
+            MIN(completed_at) as first_session,
+            MAX(completed_at) as last_session,
+            SUM(duration_minutes) as total_minutes,
+            MAX(pain_before - pain_after) as best_improvement,
+            COUNT(CASE WHEN rating >= 4 THEN 1 END) as high_rated_sessions
+          FROM sessions 
+          WHERE patient_id = ?
+        `, [patient.id]),
+
+        // Sesiones recientes (últimas 10)
+        db.all(`
+          SELECT 
+            s.*,
+            ts.name as series_name,
+            ts.therapy_type,
+            (s.pain_before - s.pain_after) as pain_improvement
+          FROM sessions s
+          LEFT JOIN therapy_series ts ON s.series_id = ts.id
+          WHERE s.patient_id = ?
+          ORDER BY s.completed_at DESC
+          LIMIT 10
+        `, [patient.id]),
+
+        // Tendencia de progreso por semanas
+        db.all(`
+          SELECT 
+            strftime('%Y-%W', completed_at) as week,
+            strftime('%Y-%m-%d', completed_at, 'weekday 0', '-6 days') as week_start,
+            COUNT(*) as sessions_count,
+            COALESCE(AVG(pain_before), 0) as avg_pain_before,
+            COALESCE(AVG(pain_after), 0) as avg_pain_after,
+            COALESCE(AVG(pain_before - pain_after), 0) as avg_improvement,
+            COALESCE(AVG(rating), 0) as avg_rating
+          FROM sessions 
+          WHERE patient_id = ? AND completed_at >= date('now', '-8 weeks')
+          GROUP BY strftime('%Y-%W', completed_at)
+          ORDER BY week DESC
+          LIMIT 8
+        `, [patient.id]),
+
+        // Logros y milestones
+        generatePatientAchievements(db, patient.id, patient.total_sessions)
+      ]);
 
       dashboardData.stats = {
         ...sessionStats,
-        avg_pain_before: sessionStats.avg_pain_before ? 
-          Math.round(sessionStats.avg_pain_before * 10) / 10 : 0,
-        avg_pain_after: sessionStats.avg_pain_after ? 
-          Math.round(sessionStats.avg_pain_after * 10) / 10 : 0,
-        avg_improvement: sessionStats.avg_improvement ? 
-          Math.round(sessionStats.avg_improvement * 10) / 10 : 0,
-        avg_duration: sessionStats.avg_duration ? 
-          Math.round(sessionStats.avg_duration) : 0,
-        avg_rating: sessionStats.avg_rating ? 
-          Math.round(sessionStats.avg_rating * 10) / 10 : 0,
-        completion_rate: patient.total_sessions > 0 ? 
-          Math.round((patient.current_session / patient.total_sessions) * 100) : 0
+        avg_pain_before: Math.round((sessionStats.avg_pain_before || 0) * 10) / 10,
+        avg_pain_after: Math.round((sessionStats.avg_pain_after || 0) * 10) / 10,
+        avg_improvement: Math.round((sessionStats.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((sessionStats.avg_rating || 0) * 10) / 10,
+        avg_duration: Math.round(sessionStats.avg_duration || 0),
+        total_hours: sessionStats.total_minutes ? 
+          Math.round(sessionStats.total_minutes / 60 * 10) / 10 : 0,
+        best_improvement: Math.round((sessionStats.best_improvement || 0) * 10) / 10,
+        consistency_score: calculateConsistencyScore(patient, sessionStats),
+        satisfaction_rate: sessionStats.total_sessions > 0 ? 
+          Math.round((sessionStats.high_rated_sessions / sessionStats.total_sessions) * 100) : 0
       };
 
-      // Obtener últimas 5 sesiones
-      dashboardData.recent_sessions = await db.all(`
-        SELECT 
-          session_number,
-          pain_before,
-          pain_after,
-          rating,
-          duration_minutes,
-          completed_at,
-          comments
-        FROM sessions 
-        WHERE patient_id = ?
-        ORDER BY completed_at DESC
-        LIMIT 5
-      `, [patient.id]);
+      dashboardData.recent_sessions = recentSessions.map(session => ({
+        ...session,
+        date_formatted: new Date(session.completed_at).toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        improvement_category: categorizeImprovement(session.pain_improvement)
+      }));
+
+      dashboardData.progress_trends = progressTrend.reverse().map(trend => ({
+        ...trend,
+        avg_pain_before: Math.round((trend.avg_pain_before || 0) * 10) / 10,
+        avg_pain_after: Math.round((trend.avg_pain_after || 0) * 10) / 10,
+        avg_improvement: Math.round((trend.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((trend.avg_rating || 0) * 10) / 10,
+        week_label: new Date(trend.week_start).toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit'
+        })
+      }));
+
+      dashboardData.achievements = achievements;
+      dashboardData.recommendations = generatePatientRecommendations(sessionStats, progressTrend);
     }
 
-    // Obtener notificaciones del paciente
-    dashboardData.notifications = await db.all(`
-      SELECT id, type, title, message, is_read, created_at
-      FROM notifications 
-      WHERE user_id = ? 
+    // Obtener notificaciones recientes
+    const notifications = await db.all(`
+      SELECT * FROM notifications 
+      WHERE user_id = ? AND created_at >= date('now', '-7 days')
       ORDER BY created_at DESC 
       LIMIT 5
     `, [req.user.id]);
 
+    dashboardData.notifications = notifications.map(notif => ({
+      ...notif,
+      data: notif.data ? JSON.parse(notif.data) : null,
+      created_formatted: new Date(notif.created_at).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }));
+
+    dashboardData.generated_at = new Date().toISOString();
+
+    // Cachear resultado
+    dashboardCache.set(cacheKey, {
+      data: dashboardData,
+      timestamp: Date.now()
+    });
+
     res.json(dashboardData);
 
   } catch (error) {
-    console.error('Error obteniendo dashboard del paciente:', error);
+    console.error('❌ Error obteniendo dashboard del paciente:', error);
     res.status(500).json({
-      error: 'Error obteniendo dashboard',
+      error: 'Error obteniendo dashboard del paciente',
       code: 'PATIENT_DASHBOARD_ERROR'
     });
   }
-}
+};
 
-export async function exportReports(req, res) {
+/**
+ * Exportar reportes para instructores
+ */
+const exportReports = async (req, res) => {
   try {
     if (req.user.role !== 'instructor') {
       return res.status(403).json({
@@ -348,140 +566,387 @@ export async function exportReports(req, res) {
       });
     }
 
-    const { format = 'json', dateFrom, dateTo, includePatients = true, includeSessions = true } = req.query;
+    const { 
+      format = 'json', 
+      startDate, 
+      endDate, 
+      patientId, 
+      seriesId,
+      includeDetails = false 
+    } = req.query;
 
     const db = getDatabase();
 
-    let dateFilter = '';
+    // Construir filtros dinámicos
+    let whereConditions = ['p.instructor_id = ?'];
     let params = [req.user.id];
 
-    if (dateFrom && dateTo) {
-      dateFilter = 'AND s.completed_at BETWEEN ? AND ?';
-      params.push(dateFrom, dateTo);
+    if (startDate) {
+      whereConditions.push('s.completed_at >= ?');
+      params.push(startDate);
     }
 
-    const reportData = {
+    if (endDate) {
+      whereConditions.push('s.completed_at <= ?');
+      params.push(endDate);
+    }
+
+    if (patientId) {
+      whereConditions.push('p.id = ?');
+      params.push(parseInt(patientId));
+    }
+
+    if (seriesId) {
+      whereConditions.push('ts.id = ?');
+      params.push(parseInt(seriesId));
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Consulta principal del reporte
+    const reportData = await db.all(`
+      SELECT 
+        p.id as patient_id,
+        p.name as patient_name,
+        p.age,
+        p.condition,
+        p.created_at as patient_created,
+        ts.id as series_id,
+        ts.name as series_name,
+        ts.therapy_type,
+        ts.total_sessions as series_total_sessions,
+        COUNT(s.id) as completed_sessions,
+        COALESCE(AVG(s.pain_before), 0) as avg_pain_before,
+        COALESCE(AVG(s.pain_after), 0) as avg_pain_after,
+        COALESCE(AVG(s.pain_before - s.pain_after), 0) as avg_improvement,
+        COALESCE(AVG(s.rating), 0) as avg_rating,
+        COALESCE(AVG(s.duration_minutes), 0) as avg_duration,
+        SUM(s.duration_minutes) as total_practice_time,
+        MIN(s.completed_at) as first_session_date,
+        MAX(s.completed_at) as last_session_date,
+        MAX(s.pain_before - s.pain_after) as best_improvement
+      FROM patients p
+      LEFT JOIN therapy_series ts ON p.assigned_series_id = ts.id
+      LEFT JOIN sessions s ON s.patient_id = p.id
+      WHERE ${whereClause} AND p.is_active = 1
+      GROUP BY p.id, ts.id
+      ORDER BY p.name, ts.name
+    `, params);
+
+    // Procesar datos del reporte
+    const processedReport = {
       generated_at: new Date().toISOString(),
       instructor: {
         id: req.user.id,
         name: req.user.name,
         email: req.user.email
       },
-      period: {
-        from: dateFrom || null,
-        to: dateTo || null
+      filters: {
+        start_date: startDate || null,
+        end_date: endDate || null,
+        patient_id: patientId || null,
+        series_id: seriesId || null
       },
-      summary: await db.get(`
-        SELECT 
-          COUNT(DISTINCT p.id) as total_patients,
-          COUNT(DISTINCT s.id) as total_sessions,
-          COUNT(DISTINCT ts.id) as total_series,
-          AVG(s.pain_before - s.pain_after) as avg_improvement
-        FROM patients p
-        LEFT JOIN sessions s ON s.patient_id = p.id ${dateFilter.replace('AND', 'WHERE').replace('s.completed_at', 's.completed_at')}
-        LEFT JOIN therapy_series ts ON ts.instructor_id = ?
-        WHERE p.instructor_id = ? AND p.is_active = 1
-      `, dateFilter ? [dateFrom, dateTo, req.user.id, req.user.id] : [req.user.id, req.user.id])
+      summary: {
+        total_patients: new Set(reportData.map(r => r.patient_id)).size,
+        total_series: new Set(reportData.map(r => r.series_id)).filter(id => id).size,
+        total_sessions: reportData.reduce((sum, r) => sum + r.completed_sessions, 0),
+        avg_improvement_overall: reportData.length > 0 ? 
+          Math.round(reportData.reduce((sum, r) => sum + r.avg_improvement, 0) / reportData.length * 10) / 10 : 0
+      },
+      data: reportData.map(row => ({
+        ...row,
+        avg_pain_before: Math.round((row.avg_pain_before || 0) * 10) / 10,
+        avg_pain_after: Math.round((row.avg_pain_after || 0) * 10) / 10,
+        avg_improvement: Math.round((row.avg_improvement || 0) * 10) / 10,
+        avg_rating: Math.round((row.avg_rating || 0) * 10) / 10,
+        avg_duration: Math.round(row.avg_duration || 0),
+        total_practice_hours: row.total_practice_time ? 
+          Math.round(row.total_practice_time / 60 * 10) / 10 : 0,
+        progress_percentage: row.series_total_sessions > 0 ? 
+          Math.round((row.completed_sessions / row.series_total_sessions) * 100) : 0
+      }))
     };
 
-    if (includePatients) {
-      reportData.patients = await db.all(`
-        SELECT 
-          p.name,
-          p.email,
-          p.age,
-          p.condition,
-          p.current_session,
-          p.total_sessions_completed,
-          ts.name as series_name,
-          ts.therapy_type,
-          ts.total_sessions,
-          AVG(s.pain_before - s.pain_after) as avg_improvement,
-          COUNT(s.id) as sessions_in_period
-        FROM patients p
-        LEFT JOIN therapy_series ts ON p.assigned_series_id = ts.id
-        LEFT JOIN sessions s ON s.patient_id = p.id ${dateFilter}
-        WHERE p.instructor_id = ? AND p.is_active = 1
-        GROUP BY p.id
-        ORDER BY p.name
-      `, dateFilter ? [...params] : [req.user.id]);
+    if (format === 'csv') {
+      // Generar CSV
+      const csvHeader = [
+        'Paciente', 'Edad', 'Condición', 'Serie', 'Tipo de Terapia',
+        'Sesiones Completadas', 'Sesiones Totales', 'Progreso %',
+        'Dolor Promedio Antes', 'Dolor Promedio Después', 'Mejora Promedio',
+        'Calificación Promedio', 'Duración Promedio (min)', 'Tiempo Total (horas)',
+        'Primera Sesión', 'Última Sesión'
+      ].join(',');
+
+      const csvRows = processedReport.data.map(row => [
+        `"${row.patient_name}"`,
+        row.age || '',
+        `"${row.condition || ''}"`,
+        `"${row.series_name || 'Sin serie'}"`,
+        `"${getTherapyTypeName(row.therapy_type) || ''}"`,
+        row.completed_sessions,
+        row.series_total_sessions || 0,
+        row.progress_percentage,
+        row.avg_pain_before,
+        row.avg_pain_after,
+        row.avg_improvement,
+        row.avg_rating,
+        row.avg_duration,
+        row.total_practice_hours,
+        row.first_session_date || '',
+        row.last_session_date || ''
+      ].join(','));
+
+      const csvContent = [csvHeader, ...csvRows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="reporte_softzen_${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+
+    } else {
+      // Devolver JSON
+      res.json(processedReport);
     }
-
-    if (includeSessions) {
-      reportData.sessions = await db.all(`
-        SELECT 
-          p.name as patient_name,
-          s.session_number,
-          s.pain_before,
-          s.pain_after,
-          s.pain_before - s.pain_after as improvement,
-          s.duration_minutes,
-          s.rating,
-          s.comments,
-          s.completed_at,
-          ts.name as series_name,
-          ts.therapy_type
-        FROM sessions s
-        JOIN patients p ON s.patient_id = p.id
-        LEFT JOIN therapy_series ts ON s.series_id = ts.id
-        WHERE p.instructor_id = ? ${dateFilter}
-        ORDER BY s.completed_at DESC
-      `, params);
-    }
-
-    // Log de analytics
-    await db.run(`
-      INSERT INTO analytics_events (user_id, event_type, event_data) 
-      VALUES (?, 'report_exported', ?)
-    `, [req.user.id, JSON.stringify({
-      format,
-      dateFrom,
-      dateTo,
-      includePatients,
-      includeSessions,
-      recordCount: reportData.sessions?.length || 0
-    })]);
-
-    if (format === 'csv' && reportData.sessions) {
-      const csv = [
-        'Paciente,Sesión,Dolor Antes,Dolor Después,Mejora,Duración (min),Calificación,Serie,Tipo Terapia,Fecha,Comentarios',
-        ...reportData.sessions.map(row => [
-          row.patient_name,
-          row.session_number,
-          row.pain_before,
-          row.pain_after,
-          row.improvement,
-          row.duration_minutes || '',
-          row.rating || '',
-          row.series_name || '',
-          row.therapy_type || '',
-          new Date(row.completed_at).toLocaleDateString('es-ES'),
-          `"${(row.comments || '').replace(/"/g, '""')}"`
-        ].join(','))
-      ].join('\n');
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="reporte-yoga-${new Date().toISOString().split('T')[0]}.csv"`);
-      return res.send('\ufeff' + csv); // BOM para UTF-8
-    }
-
-    res.json(reportData);
 
   } catch (error) {
-    console.error('Error exportando reportes:', error);
+    console.error('❌ Error exportando reportes:', error);
     res.status(500).json({
       error: 'Error exportando reportes',
-      code: 'EXPORT_ERROR'
+      code: 'EXPORT_REPORTS_ERROR'
     });
   }
+};
+
+// ========== FUNCIONES AUXILIARES ==========
+
+/**
+ * Obtener nombre de tipo de terapia
+ */
+function getTherapyTypeName(therapyType) {
+  const therapyNames = {
+    'back_pain': 'Dolor de Espalda',
+    'neck_pain': 'Dolor de Cuello',
+    'joint_pain': 'Dolor Articular',
+    'stress_relief': 'Alivio del Estrés',
+    'flexibility': 'Flexibilidad',
+    'strength': 'Fortalecimiento',
+    'posture': 'Corrección Postural',
+    'breathing': 'Respiración',
+    'meditation': 'Meditación',
+    'general': 'General'
+  };
+  
+  return therapyNames[therapyType] || therapyType || 'No especificado';
 }
 
-// Función auxiliar para nombres de tipos de terapia
-function getTherapyTypeName(type) {
-  const names = {
-    'anxiety': 'Ansiedad y Estrés',
-    'arthritis': 'Artritis y Rigidez Articular',
-    'back_pain': 'Dolor de Espalda'
-  };
-  return names[type] || type;
+/**
+ * Categorizar mejora de dolor
+ */
+function categorizeImprovement(improvement) {
+  if (improvement >= 4) return 'excellent';
+  if (improvement >= 2) return 'good';
+  if (improvement >= 0) return 'slight';
+  return 'none';
 }
+
+/**
+ * Calcular score de efectividad
+ */
+function calculateEffectivenessScore(stat) {
+  if (!stat.sessions_count) return 0;
+  
+  const improvementScore = Math.min(stat.avg_improvement * 20, 50); // max 50 puntos
+  const ratingScore = stat.avg_rating * 10; // max 50 puntos
+  
+  return Math.round(improvementScore + ratingScore);
+}
+
+/**
+ * Calcular score de adherencia
+ */
+function calculateAdherenceScore(patient) {
+  if (!patient.total_sessions || !patient.days_since_assignment) return 0;
+  
+  const expectedProgress = Math.min(patient.days_since_assignment / 7, patient.total_sessions);
+  const actualProgress = patient.current_session;
+  
+  return Math.round((actualProgress / expectedProgress) * 100);
+}
+
+/**
+ * Calcular score de popularidad de series
+ */
+function calculatePopularityScore(series) {
+  const assignmentScore = Math.min(series.assigned_patients * 10, 50);
+  const completionScore = series.completion_rate / 2;
+  const ratingScore = series.avg_rating * 10;
+  
+  return Math.round(assignmentScore + completionScore + ratingScore);
+}
+
+/**
+ * Calcular score de consistencia
+ */
+function calculateConsistencyScore(patient, stats) {
+  if (!stats.total_sessions || stats.total_sessions < 3) return 0;
+  
+  // Días desde la primera sesión
+  const daysSinceStart = patient.first_session ? 
+    Math.floor((Date.now() - new Date(patient.first_session).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  
+  if (daysSinceStart === 0) return 100;
+  
+  // Sesiones por día esperadas vs reales
+  const expectedFrequency = 0.5; // 3-4 sesiones por semana
+  const actualFrequency = stats.total_sessions / daysSinceStart;
+  
+  return Math.min(Math.round((actualFrequency / expectedFrequency) * 100), 100);
+}
+
+/**
+ * Generar insights para instructores
+ */
+function generateInstructorInsights(overview, trends, therapyTypes) {
+  const insights = [];
+  
+  if (overview.avg_pain_improvement > 3) {
+    insights.push({
+      type: 'success',
+      title: 'Excelentes resultados',
+      message: 'Tus pacientes muestran una mejora promedio significativa en el dolor',
+      metric: `${overview.avg_pain_improvement} puntos de mejora`
+    });
+  }
+  
+  if (overview.avg_rating >= 4.5) {
+    insights.push({
+      type: 'success',
+      title: 'Alta satisfacción',
+      message: 'Los pacientes están muy satisfechos con las sesiones',
+      metric: `${overview.avg_rating}/5 estrellas`
+    });
+  }
+  
+  if (overview.sessions_this_week < overview.active_patients * 0.3) {
+    insights.push({
+      type: 'warning',
+      title: 'Baja actividad semanal',
+      message: 'Considera motivar a los pacientes a mantener consistencia',
+      metric: `${overview.sessions_this_week} sesiones esta semana`
+    });
+  }
+  
+  const bestTherapy = therapyTypes.reduce((best, current) => 
+    current.avg_improvement > best.avg_improvement ? current : best, 
+    { avg_improvement: 0 }
+  );
+  
+  if (bestTherapy.therapy_type) {
+    insights.push({
+      type: 'info',
+      title: 'Terapia más efectiva',
+      message: `${getTherapyTypeName(bestTherapy.therapy_type)} muestra los mejores resultados`,
+      metric: `${bestTherapy.avg_improvement} puntos de mejora`
+    });
+  }
+  
+  return insights;
+}
+
+/**
+ * Generar logros del paciente
+ */
+async function generatePatientAchievements(db, patientId, totalSessions) {
+  const achievements = [];
+  
+  // Consultar logros basados en sesiones
+  const sessionCount = await db.get(
+    'SELECT COUNT(*) as count FROM sessions WHERE patient_id = ?', 
+    [patientId]
+  );
+  
+  const milestones = [
+    { sessions: 1, title: 'Primer Paso', description: 'Completaste tu primera sesión' },
+    { sessions: 5, title: 'Constante', description: 'Has completado 5 sesiones' },
+    { sessions: 10, title: 'Dedicado', description: 'Has completado 10 sesiones' },
+    { sessions: 25, title: 'Comprometido', description: 'Has completado 25 sesiones' },
+    { sessions: 50, title: 'Maestro', description: 'Has completado 50 sesiones' }
+  ];
+  
+  milestones.forEach(milestone => {
+    if (sessionCount.count >= milestone.sessions) {
+      achievements.push({
+        ...milestone,
+        achieved: true,
+        achieved_at: new Date().toISOString() // En una implementación real, esto vendría de la DB
+      });
+    }
+  });
+  
+  return achievements;
+}
+
+/**
+ * Generar recomendaciones para pacientes
+ */
+function generatePatientRecommendations(stats, trends) {
+  const recommendations = [];
+  
+  if (stats.avg_improvement < 1) {
+    recommendations.push({
+      type: 'technique',
+      title: 'Mejora tu técnica',
+      description: 'Considera revisar las posturas con tu instructor para obtener mejores resultados'
+    });
+  }
+  
+  if (stats.avg_duration < 20) {
+    recommendations.push({
+      type: 'duration',
+      title: 'Aumenta la duración',
+      description: 'Trata de extender tus sesiones a al menos 20-30 minutos para mejores beneficios'
+    });
+  }
+  
+  if (trends.length > 2 && trends.slice(-2).every(t => t.sessions_count < 2)) {
+    recommendations.push({
+      type: 'consistency',
+      title: 'Mantén la consistencia',
+      description: 'Trata de practicar al menos 3 veces por semana para obtener mejores resultados'
+    });
+  }
+  
+  if (stats.avg_rating >= 4 && stats.avg_improvement >= 2) {
+    recommendations.push({
+      type: 'progress',
+      title: '¡Excelente progreso!',
+      description: 'Estás haciendo un gran trabajo. Considera hablar con tu instructor sobre nuevos desafíos'
+    });
+  }
+  
+  return recommendations;
+}
+
+// Cleanup de cache periódico
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const [key, value] of dashboardCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      dashboardCache.delete(key);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 Cleaned ${cleanedCount} dashboard cache entries`);
+  }
+}, 5 * 60 * 1000); // Cada 5 minutos
+
+// Export default del controlador
+export default {
+  getInstructorDashboard,
+  getPatientDashboard,
+  exportReports
+};

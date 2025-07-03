@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 Generador de Iconos SoftZen</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #4c63d2;
+            --surface: #ffffff;
+            --surface-variant: #f8fafc;
+            --on-surface: #1e293b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--surface-variant);
+            color: var(--on-surface);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            background: var(--surface-variant);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .control-group h3 {
+            margin-bottom: 1rem;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .color-input {
+            height: 45px;
+            padding: 0.25rem;
+            cursor: pointer;
+        }
+
+        .range-input {
+            accent-color: var(--primary);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--surface-variant);
+            color: var(--on-surface);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .preview-item {
+            text-align: center;
+            padding: 1rem;
+            background: var(--surface-variant);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .preview-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 0.5rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .download-section {
+            background: var(--surface-variant);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .download-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .download-info {
+            flex: 1;
+        }
+
+        .download-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .download-size {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .download-btn {
+            padding: 0.5rem 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s ease;
+        }
+
+        .download-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .status {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+            
+            .preview-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
+
+        .advanced-options {
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Generador de Iconos SoftZen</h1>
+            <p>Crea iconos optimizados para PWA, iOS y Android</p>
+        </div>
+        
+        <div class="content">
+            <div class="controls">
+                <div class="control-group">
+                    <h3>🎯 Diseño Principal</h3>
+                    <div class="form-group">
+                        <label for="iconText">Emoji/Texto del Icono</label>
+                        <input type="text" id="iconText" value="🧘‍♀️" maxlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label for="textSize">Tamaño del Texto (%)</label>
+                        <input type="range" id="textSize" class="range-input" min="30" max="80" value="60">
+                        <span id="textSizeValue">60%</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>🎨 Colores</h3>
+                    <div class="form-group">
+                        <label for="bgColor">Color de Fondo</label>
+                        <input type="color" id="bgColor" class="color-input" value="#667eea">
+                    </div>
+                    <div class="form-group">
+                        <label for="textColor">Color del Texto</label>
+                        <input type="color" id="textColor" class="color-input" value="#ffffff">
+                    </div>
+                    <div class="form-group">
+                        <label for="gradientEnabled">Gradiente</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="gradientEnabled" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span>Habilitar gradiente</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="gradientColor">Color del Gradiente</label>
+                        <input type="color" id="gradientColor" class="color-input" value="#4c63d2">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>📐 Forma y Estilo</h3>
+                    <div class="form-group">
+                        <label for="borderRadius">Radio de Borde (%)</label>
+                        <input type="range" id="borderRadius" class="range-input" min="0" max="50" value="20">
+                        <span id="borderRadiusValue">20%</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="shadowEnabled">Sombra</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="shadowEnabled" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span>Agregar sombra</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>⚡ Optimización</h3>
+                    <div class="form-group">
+                        <label for="quality">Calidad de Imagen</label>
+                        <select id="quality">
+                            <option value="0.9">Alta (90%)</option>
+                            <option value="0.8" selected>Media (80%)</option>
+                            <option value="0.7">Baja (70%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="format">Formato de Salida</label>
+                        <select id="format">
+                            <option value="png" selected>PNG (transparencia)</option>
+                            <option value="webp">WebP (optimizado)</option>
+                            <option value="jpg">JPG (compatible)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button class="btn btn-primary" onclick="generatePreviews()">
+                    🎨 Generar Vista Previa
+                </button>
+                <button class="btn btn-primary" onclick="generateAllIcons()">
+                    📦 Generar Todos los Iconos
+                </button>
+                <button class="btn btn-secondary" onclick="resetToDefaults()">
+                    🔄 Restablecer
+                </button>
+                <button class="btn btn-secondary" onclick="exportConfig()">
+                    💾 Exportar Configuración
+                </button>
+            </div>
+
+            <div id="status"></div>
+
+            <div class="preview-grid" id="previewGrid">
+                <!-- Previews se generan aquí -->
+            </div>
+
+            <div class="download-section">
+                <h3 style="margin-bottom: 1rem;">📥 Descargar Iconos</h3>
+                <div class="download-grid" id="downloadGrid">
+                    <!-- Botones de descarga se generan aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de tamaños de iconos requeridos
+        const ICON_SIZES = [
+            { size: 72, name: 'icon-72x72.png', description: 'Android Chrome' },
+            { size: 96, name: 'icon-96x96.png', description: 'Android Chrome' },
+            { size: 128, name: 'icon-128x128.png', description: 'Chrome Web Store' },
+            { size: 144, name: 'icon-144x144.png', description: 'Android Chrome' },
+            { size: 152, name: 'icon-152x152.png', description: 'iOS Safari' },
+            { size: 192, name: 'icon-192x192.png', description: 'Android Chrome' },
+            { size: 384, name: 'icon-384x384.png', description: 'Android Chrome' },
+            { size: 512, name: 'icon-512x512.png', description: 'PWA Splash' },
+            { size: 32, name: 'favicon-32x32.png', description: 'Favicon' },
+            { size: 16, name: 'favicon-16x16.png', description: 'Favicon' }
+        ];
+
+        // Variables globales para los iconos generados
+        let generatedIcons = new Map();
+
+        // Configurar event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            generatePreviews();
+        });
+
+        function setupEventListeners() {
+            // Range inputs
+            document.getElementById('textSize').addEventListener('input', (e) => {
+                document.getElementById('textSizeValue').textContent = e.target.value + '%';
+                generatePreviews();
+            });
+
+            document.getElementById('borderRadius').addEventListener('input', (e) => {
+                document.getElementById('borderRadiusValue').textContent = e.target.value + '%';
+                generatePreviews();
+            });
+
+            // Color inputs
+            ['bgColor', 'textColor', 'gradientColor'].forEach(id => {
+                document.getElementById(id).addEventListener('input', generatePreviews);
+            });
+
+            // Checkboxes
+            ['gradientEnabled', 'shadowEnabled'].forEach(id => {
+                document.getElementById(id).addEventListener('change', generatePreviews);
+            });
+
+            // Text input
+            document.getElementById('iconText').addEventListener('input', generatePreviews);
+        }
+
+        function generatePreviews() {
+            const previewGrid = document.getElementById('previewGrid');
+            previewGrid.innerHTML = '';
+
+            // Generar previews para diferentes tamaños
+            const previewSizes = [72, 128, 192, 512];
+            
+            previewSizes.forEach(size => {
+                const canvas = createIconCanvas(size);
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                
+                const previewIcon = document.createElement('div');
+                previewIcon.className = 'preview-icon';
+                previewIcon.appendChild(canvas);
+                
+                const previewLabel = document.createElement('div');
+                previewLabel.className = 'preview-label';
+                previewLabel.textContent = `${size}x${size}`;
+                
+                previewItem.appendChild(previewIcon);
+                previewItem.appendChild(previewLabel);
+                previewGrid.appendChild(previewItem);
+            });
+        }
+
+        function createIconCanvas(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            canvas.style.width = '64px';
+            canvas.style.height = '64px';
+            canvas.style.borderRadius = '8px';
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Configuración
+            const config = getConfig();
+            const borderRadius = (config.borderRadius / 100) * size;
+            
+            // Limpiar canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Crear forma con border radius
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, borderRadius);
+            ctx.clip();
+            
+            // Fondo (gradiente o sólido)
+            if (config.gradientEnabled) {
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, config.bgColor);
+                gradient.addColorStop(1, config.gradientColor);
+                ctx.fillStyle = gradient;
+            } else {
+                ctx.fillStyle = config.bgColor;
+            }
+            ctx.fill();
+            
+            // Sombra (solo visual, no en el archivo final)
+            if (config.shadowEnabled) {
+                canvas.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+            } else {
+                canvas.style.boxShadow = 'none';
+            }
+            
+            // Texto/Emoji
+            const fontSize = (config.textSize / 100) * size;
+            ctx.font = `${fontSize}px Arial, sans-serif`;
+            ctx.fillStyle = config.textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Dibujar texto centrado
+            ctx.fillText(config.iconText, size / 2, size / 2);
+            
+            return canvas;
+        }
+
+        function getConfig() {
+            return {
+                iconText: document.getElementById('iconText').value || '🧘‍♀️',
+                textSize: parseInt(document.getElementById('textSize').value),
+                bgColor: document.getElementById('bgColor').value,
+                textColor: document.getElementById('textColor').value,
+                gradientEnabled: document.getElementById('gradientEnabled').checked,
+                gradientColor: document.getElementById('gradientColor').value,
+                borderRadius: parseInt(document.getElementById('borderRadius').value),
+                shadowEnabled: document.getElementById('shadowEnabled').checked,
+                quality: parseFloat(document.getElementById('quality').value),
+                format: document.getElementById('format').value
+            };
+        }
+
+        function generateAllIcons() {
+            showStatus('🎨 Generando todos los iconos...', 'info');
+            
+            generatedIcons.clear();
+            const config = getConfig();
+            
+            // Generar cada tamaño
+            ICON_SIZES.forEach(iconInfo => {
+                const canvas = createIconCanvas(iconInfo.size);
+                
+                // Convertir a blob
+                canvas.toBlob((blob) => {
+                    generatedIcons.set(iconInfo.name, {
+                        blob: blob,
+                        size: iconInfo.size,
+                        description: iconInfo.description,
+                        name: iconInfo.name
+                    });
+                    
+                    // Cuando todos estén listos, actualizar la UI
+                    if (generatedIcons.size === ICON_SIZES.length) {
+                        updateDownloadSection();
+                        showStatus('✅ Todos los iconos generados correctamente', 'success');
+                    }
+                }, `image/${config.format}`, config.quality);
+            });
+        }
+
+        function updateDownloadSection() {
+            const downloadGrid = document.getElementById('downloadGrid');
+            downloadGrid.innerHTML = '';
+            
+            generatedIcons.forEach((iconData, filename) => {
+                const downloadItem = document.createElement('div');
+                downloadItem.className = 'download-item';
+                
+                const info = document.createElement('div');
+                info.className = 'download-info';
+                
+                const name = document.createElement('div');
+                name.className = 'download-name';
+                name.textContent = filename;
+                
+                const size = document.createElement('div');
+                size.className = 'download-size';
+                size.textContent = `${iconData.size}x${iconData.size} • ${iconData.description}`;
+                
+                info.appendChild(name);
+                info.appendChild(size);
+                
+                const button = document.createElement('button');
+                button.className = 'download-btn';
+                button.textContent = '📥 Descargar';
+                button.onclick = () => downloadIcon(filename, iconData);
+                
+                downloadItem.appendChild(info);
+                downloadItem.appendChild(button);
+                downloadGrid.appendChild(downloadItem);
+            });
+            
+            // Agregar botón para descargar todo
+            const downloadAllItem = document.createElement('div');
+            downloadAllItem.className = 'download-item';
+            downloadAllItem.style.gridColumn = '1 / -1';
+            
+            const allInfo = document.createElement('div');
+            allInfo.className = 'download-info';
+            
+            const allName = document.createElement('div');
+            allName.className = 'download-name';
+            allName.textContent = 'Todos los iconos';
+            
+            const allSize = document.createElement('div');
+            allSize.className = 'download-size';
+            allSize.textContent = `${generatedIcons.size} archivos • ZIP comprimido`;
+            
+            allInfo.appendChild(allName);
+            allInfo.appendChild(allSize);
+            
+            const allButton = document.createElement('button');
+            allButton.className = 'download-btn';
+            allButton.textContent = '📦 Descargar Todo (ZIP)';
+            allButton.onclick = downloadAllIcons;
+            
+            downloadAllItem.appendChild(allInfo);
+            downloadAllItem.appendChild(allButton);
+            downloadGrid.appendChild(downloadAllItem);
+        }
+
+        function downloadIcon(filename, iconData) {
+            const url = URL.createObjectURL(iconData.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus(`✅ ${filename} descargado`, 'success');
+        }
+
+        async function downloadAllIcons() {
+            if (typeof JSZip === 'undefined') {
+                // Si JSZip no está disponible, descargar uno por uno
+                showStatus('📦 Descargando iconos individualmente...', 'info');
+                
+                for (const [filename, iconData] of generatedIcons) {
+                    downloadIcon(filename, iconData);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Pequeña pausa
+                }
+                
+                showStatus('✅ Todos los iconos descargados', 'success');
+                return;
+            }
+            
+            showStatus('📦 Creando archivo ZIP...', 'info');
+            
+            const zip = new JSZip();
+            const folder = zip.folder('softzen-icons');
+            
+            // Agregar cada icono al ZIP
+            generatedIcons.forEach((iconData, filename) => {
+                folder.file(filename, iconData.blob);
+            });
+            
+            // Agregar archivo README
+            const readme = `# SoftZen Icons
+
+Iconos generados para la aplicación SoftZen PWA.
+
+## Tamaños incluidos:
+${Array.from(generatedIcons.values()).map(icon => 
+    `- ${icon.name}: ${icon.size}x${icon.size} (${icon.description})`
+).join('\n')}
+
+## Instalación:
+1. Copia todos los archivos a la carpeta /frontend/icons/
+2. Verifica que el manifest.json tenga las referencias correctas
+3. Actualiza tu PWA
+
+Generado el: ${new Date().toLocaleString()}
+`;
+            
+            folder.file('README.md', readme);
+            
+            // Generar y descargar ZIP
+            try {
+                const content = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'softzen-icons.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showStatus('✅ Archivo ZIP descargado correctamente', 'success');
+            } catch (error) {
+                console.error('Error creando ZIP:', error);
+                showStatus('❌ Error creando archivo ZIP', 'error');
+            }
+        }
+
+        function resetToDefaults() {
+            document.getElementById('iconText').value = '🧘‍♀️';
+            document.getElementById('textSize').value = '60';
+            document.getElementById('textSizeValue').textContent = '60%';
+            document.getElementById('bgColor').value = '#667eea';
+            document.getElementById('textColor').value = '#ffffff';
+            document.getElementById('gradientEnabled').checked = true;
+            document.getElementById('gradientColor').value = '#4c63d2';
+            document.getElementById('borderRadius').value = '20';
+            document.getElementById('borderRadiusValue').textContent = '20%';
+            document.getElementById('shadowEnabled').checked = true;
+            document.getElementById('quality').value = '0.8';
+            document.getElementById('format').value = 'png';
+            
+            generatePreviews();
+            showStatus('🔄 Configuración restablecida', 'info');
+        }
+
+        function exportConfig() {
+            const config = getConfig();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "softzen-icon-config.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            showStatus('💾 Configuración exportada', 'success');
+        }
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                status.innerHTML = '';
+            }, 3000);
+        }
+
+        // Polyfill para roundRect si no está disponible
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+    </script>
+    
+    <!-- JSZip para crear archivos ZIP (opcional) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</body>
+</html>

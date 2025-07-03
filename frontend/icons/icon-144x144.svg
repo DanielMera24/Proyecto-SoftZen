@@ -1,0 +1,36 @@
+<svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient144" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4c63d2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo redondeado -->
+  <rect x="0" y="0" width="144" height="144" rx="29" ry="29" fill="url(#gradient144)" />
+  
+  <!-- Icono de yoga/meditación -->
+  <g transform="translate(72,72)">
+    <!-- Persona en posición de loto -->
+    <circle cx="0" cy="-19" r="13" fill="white" opacity="0.9" />
+    
+    <!-- Cuerpo -->
+    <ellipse cx="0" cy="-3" rx="9" ry="15" fill="white" opacity="0.9" />
+    
+    <!-- Brazos en posición de meditación -->
+    <ellipse cx="-15" cy="-6" rx="4.5" ry="11" fill="white" opacity="0.8" transform="rotate(-30)" />
+    <ellipse cx="15" cy="-6" rx="4.5" ry="11" fill="white" opacity="0.8" transform="rotate(30)" />
+    
+    <!-- Piernas cruzadas -->
+    <ellipse cx="-11" cy="11" rx="6" ry="9" fill="white" opacity="0.8" transform="rotate(-20)" />
+    <ellipse cx="11" cy="11" rx="6" ry="9" fill="white" opacity="0.8" transform="rotate(20)" />
+    
+    <!-- Elementos de zen/paz -->
+    <circle cx="-26" cy="-26" r="2" fill="white" opacity="0.6" />
+    <circle cx="26" cy="-26" r="2" fill="white" opacity="0.6" />
+    <circle cx="-30" cy="0" r="1.5" fill="white" opacity="0.5" />
+    <circle cx="30" cy="0" r="1.5" fill="white" opacity="0.5" />
+    <circle cx="-26" cy="26" r="2" fill="white" opacity="0.6" />
+    <circle cx="26" cy="26" r="2" fill="white" opacity="0.6" />
+  </g>
+</svg>

@@ -1,354 +1,1007 @@
-class YogaTherapyApp {
+// ===================================================================
+// APLICACIÓN PRINCIPAL SOFTZEN V2.1.2 - CREDENCIALES DEMO FUNCIONANDO
+// Enfoque: Integración Completa + Credenciales Demo + Error Handling
+// ===================================================================
+
+import firebaseService from './js/firebase-service.js';
+
+// ===================================================================
+// CLASE PRINCIPAL DE LA APLICACIÓN
+// ===================================================================
+
+class SoftZenApp {
     constructor() {
+        this.isInitialized = false;
         this.currentUser = null;
-        this.currentView = 'login';
-        this.token = localStorage.getItem('yoga_therapy_token');
-        this.API_BASE = '/api';
-        this.currentSeries = null;
-        this.currentSessionData = null;
+        this.currentView = 'auth';
+        this.services = null;
         
-        this.init();
+        // Referencias a elementos DOM
+        this.elements = {};
+        
+        // Estado de la aplicación
+        this.state = {
+            isLoading: false,
+            isOnline: navigator.onLine,
+            theme: 'default',
+            notifications: []
+        };
+        
+        console.log('🚀 SoftZen App v2.1.2 inicializando...');
     }
 
+    // ===================================================================
+    // INICIALIZACIÓN PRINCIPAL
+    // ===================================================================
+
     async init() {
-        this.hideLoading();
-        
-        // Verificar si hay token almacenado
-        if (this.token) {
-            try {
-                await this.verifyToken();
-            } catch (error) {
-                console.error('Token inválido:', error);
-                this.logout();
-            }
-        } else {
-            this.showAuthScreen();
+        if (this.isInitialized) {
+            console.log('✅ App ya inicializada');
+            return;
         }
+
+        try {
+            console.log('🔧 Inicializando aplicación SoftZen...');
+            
+            // Paso 1: Configurar elementos DOM
+            this.setupDOMReferences();
+            
+            // Paso 2: Inicializar servicios
+            await this.initializeServices();
+            
+            // Paso 3: Configurar listeners
+            this.setupEventListeners();
+            
+            // Paso 4: Configurar autenticación
+            this.setupAuthentication();
+            
+            // Paso 5: Configurar credenciales demo
+            this.setupDemoCredentials();
+            
+            // Paso 6: Configurar interfaz inicial
+            this.setupInitialInterface();
+            
+            // Paso 7: Verificar estado de auth
+            await this.checkAuthState();
+            
+            this.isInitialized = true;
+            console.log('✅ SoftZen App inicializada correctamente');
+            
+            // Disparar evento de app lista
+            this.dispatchEvent('appReady', { timestamp: new Date() });
+            
+        } catch (error) {
+            console.error('❌ Error inicializando app:', error);
+            this.handleInitializationError(error);
+        }
+    }
+
+    // ===================================================================
+    // CONFIGURACIÓN DE SERVICIOS
+    // ===================================================================
+
+    async initializeServices() {
+        console.log('🔥 Inicializando servicios...');
         
-        this.setupEventListeners();
+        try {
+            // Inicializar Firebase Service
+            this.services = await firebaseService.init();
+            console.log('✅ Firebase Service inicializado');
+            
+            // Configurar listeners de Firebase
+            this.setupFirebaseListeners();
+            
+        } catch (error) {
+            console.warn('⚠️ Error inicializando servicios:', error);
+            // Continuar en modo limitado
+            this.services = null;
+        }
+    }
+
+    setupFirebaseListeners() {
+        if (!this.services?.auth) return;
+
+        // Listener de cambios de autenticación
+        this.services.auth.onAuthStateChanged(async (user) => {
+            console.log('🔐 Estado de auth cambió:', user ? user.email : 'no autenticado');
+            
+            this.currentUser = user;
+            
+            if (user) {
+                await this.handleUserSignedIn(user);
+            } else {
+                await this.handleUserSignedOut();
+            }
+        });
+    }
+
+    // ===================================================================
+    // CONFIGURACIÓN DOM Y EVENTOS
+    // ===================================================================
+
+    setupDOMReferences() {
+        console.log('📄 Configurando referencias DOM...');
+        
+        // Contenedores principales
+        this.elements.authContainer = document.getElementById('authContainer');
+        this.elements.dashboardContainer = document.getElementById('dashboardContainer');
+        
+        // Formularios
+        this.elements.loginForm = document.getElementById('loginFormElement');
+        this.elements.registerForm = document.getElementById('registerFormElement');
+        
+        // Botones
+        this.elements.loginBtn = document.getElementById('btnLogin');
+        this.elements.registerBtn = document.getElementById('btnRegister');
+        this.elements.logoutBtn = document.getElementById('btnLogout');
+        
+        // Campos de formulario
+        this.elements.loginEmail = document.getElementById('loginEmail');
+        this.elements.loginPassword = document.getElementById('loginPassword');
+        this.elements.registerEmail = document.getElementById('registerEmail');
+        this.elements.registerPassword = document.getElementById('registerPassword');
+        this.elements.registerName = document.getElementById('registerName');
+        this.elements.registerRole = document.getElementById('registerRole');
+        
+        // Tabs de auth
+        this.elements.authTabs = document.querySelectorAll('.auth-tab');
+        
+        // Información de usuario
+        this.elements.userDisplayName = document.getElementById('userDisplayName');
+        this.elements.userRole = document.getElementById('userRole');
+        this.elements.navUserInfo = document.getElementById('navUserInfo');
     }
 
     setupEventListeners() {
-        // Auth tabs
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.switchAuthTab(e.target.dataset.tab);
-            });
-        });
-
-        // Auth forms
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleLogin();
-        });
-
-        document.getElementById('register-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleRegister();
-        });
-
-        // Role change handler
-        document.getElementById('register-role')?.addEventListener('change', (e) => {
-            this.handleRoleChange(e.target.value);
-        });
-
-        // Navigation
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.showView(e.target.dataset.view);
-            });
-        });
-
-        // CORREGIDO: Agregados event listeners faltantes
-        this.setupOtherEventListeners();
-    }
-
-    setupOtherEventListeners() {
-        // Logout buttons
-        document.getElementById('logout-btn')?.addEventListener('click', () => {
-            this.logout();
-        });
-
-        document.getElementById('patient-logout-btn')?.addEventListener('click', () => {
-            this.logout();
-        });
-
-        // Dashboard actions
-        document.getElementById('refresh-dashboard-btn')?.addEventListener('click', () => {
-            this.loadDashboard();
-        });
-
-        document.getElementById('add-patient-btn')?.addEventListener('click', () => {
-            this.showPatientModal();
-        });
-
-        // CORREGIDO: Event listener para iniciar sesión (paciente)
-        document.getElementById('start-session-btn')?.addEventListener('click', () => {
-            this.startSession();
-        });
-
-        // CORREGIDO: Event listener para cambio de tipo de terapia
-        document.getElementById('therapy-type')?.addEventListener('change', (e) => {
-            this.loadTherapyPostures(e.target.value);
-        });
-
-        // CORREGIDO: Event listener para formulario de crear serie
-        document.getElementById('create-series-form')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleCreateSeries();
-        });
-
-        // CORREGIDO: Event listeners para botones de sesión
-        document.getElementById('start-postures-btn')?.addEventListener('click', () => {
-            this.startPostures();
-        });
-
-        document.getElementById('next-posture-btn')?.addEventListener('click', () => {
-            this.nextPosture();
-        });
-
-        document.getElementById('complete-session-btn')?.addEventListener('click', () => {
-            this.completeSession();
-        });
-
-        // Modal controls
-        document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.hideModal();
-            });
-        });
-
-        // Pain scale updates
-        document.getElementById('pain-before')?.addEventListener('input', (e) => {
-            document.getElementById('pain-before-value').textContent = e.target.value;
-        });
-
-        document.getElementById('pain-after')?.addEventListener('input', (e) => {
-            document.getElementById('pain-after-value').textContent = e.target.value;
-        });
-    }
-
-    // Utility methods
-    hideLoading() {
-        document.getElementById('loading').classList.add('hidden');
-    }
-
-    showAuthScreen() {
-        document.getElementById('auth-screen').classList.remove('hidden');
-        document.getElementById('instructor-dashboard').classList.add('hidden');
-        document.getElementById('patient-dashboard').classList.add('hidden');
+        console.log('👂 Configurando listeners de eventos...');
         
-        // Cargar instructores disponibles cuando se muestra la pantalla de auth
-        this.loadAvailableInstructors();
-    }
-
-    switchAuthTab(tab) {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
+        // Formularios
+        if (this.elements.loginForm) {
+            this.elements.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+        }
+        
+        if (this.elements.registerForm) {
+            this.elements.registerForm.addEventListener('submit', (e) => this.handleRegister(e));
+        }
+        
+        // Botón de logout
+        if (this.elements.logoutBtn) {
+            this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
+        
+        // Tabs de autenticación
+        this.elements.authTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => this.handleTabSwitch(e));
         });
         
-        document.querySelectorAll('.auth-form').forEach(form => {
-            form.classList.add('hidden');
-        });
-
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-        document.getElementById(`${tab}-form`).classList.remove('hidden');
-
-        // Si es registro, cargar instructores
-        if (tab === 'register') {
-            this.loadAvailableInstructors();
+        // Campo de rol para mostrar/ocultar campos de instructor
+        if (this.elements.registerRole) {
+            this.elements.registerRole.addEventListener('change', (e) => this.handleRoleChange(e));
         }
+        
+        // Eventos globales
+        window.addEventListener('online', () => this.handleConnectivityChange(true));
+        window.addEventListener('offline', () => this.handleConnectivityChange(false));
+        
+        // Evento personalizado de app lista
+        window.addEventListener('appReady', (e) => this.handleAppReady(e));
     }
 
-    handleRoleChange(role) {
-        const patientFields = document.getElementById('patient-fields');
-        if (role === 'patient') {
-            patientFields.classList.remove('hidden');
-            this.loadAvailableInstructors();
-        } else {
-            patientFields.classList.add('hidden');
-        }
-    }
+    // ===================================================================
+    // CREDENCIALES DEMO MEJORADAS
+    // ===================================================================
 
-    async loadAvailableInstructors() {
-        try {
-            const response = await this.apiCall('/auth/instructors');
-            const instructors = response.instructors || response;
-            
-            const select = document.getElementById('register-instructor');
-            if (select) {
-                select.innerHTML = '<option value="">Seleccionar instructor</option>';
-                
-                instructors.forEach(instructor => {
-                    const option = document.createElement('option');
-                    option.value = instructor.id;
-                    option.textContent = `${instructor.name} - ${instructor.specialization}`;
-                    select.appendChild(option);
-                });
-            }
-        } catch (error) {
-            console.error('Error cargando instructores:', error);
-        }
-    }
-
-    // API methods
-    async apiCall(endpoint, options = {}) {
-        const url = `${this.API_BASE}${endpoint}`;
-        const config = {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(this.token && { 'Authorization': `Bearer ${this.token}` })
+    setupDemoCredentials() {
+        console.log('🎮 Configurando credenciales demo...');
+        
+        // Credenciales disponibles
+        const demoCredentials = {
+            instructor: {
+                email: 'admin@softzen.com',
+                password: 'SoftZen2024!',
+                displayName: 'Dr. SoftZen Admin',
+                role: 'instructor'
             },
-            ...options
-        };
-
-        try {
-            const response = await fetch(url, config);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP ${response.status}`);
+            patient: {
+                email: 'paciente@softzen.com',
+                password: 'SoftZen2024!', 
+                displayName: 'Usuario Demo',
+                role: 'patient'
             }
-
-            return data;
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    async verifyToken() {
-        try {
-            const response = await this.apiCall('/auth/verify');
-            this.currentUser = response.user;
-            this.showDashboard();
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    // Authentication methods
-    async handleLogin() {
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-
-        try {
-            const response = await this.apiCall('/auth/login', {
-                method: 'POST',
-                body: JSON.stringify({ email, password })
-            });
-
-            this.token = response.token;
-            this.currentUser = response.user;
-            localStorage.setItem('yoga_therapy_token', this.token);
-            
-            this.showSuccess(response.message);
-            this.showDashboard();
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    async handleRegister() {
-        const role = document.getElementById('register-role').value;
-        const formData = {
-            name: document.getElementById('register-name').value,
-            email: document.getElementById('register-email').value,
-            password: document.getElementById('register-password').value,
-            role: role
         };
-
-        // Si es paciente, agregar campos adicionales
-        if (role === 'patient') {
-            const age = document.getElementById('register-age').value;
-            const instructorId = document.getElementById('register-instructor').value;
-            
-            if (!age || !instructorId) {
-                this.showError('Para pacientes, la edad e instructor son obligatorios');
-                return;
-            }
-            
-            formData.age = parseInt(age);
-            formData.instructorId = parseInt(instructorId);
-        }
-
-        try {
-            const response = await this.apiCall('/auth/register', {
-                method: 'POST',
-                body: JSON.stringify(formData)
-            });
-
-            this.token = response.token;
-            this.currentUser = response.user;
-            localStorage.setItem('yoga_therapy_token', this.token);
-            
-            this.showSuccess(response.message);
-            this.showDashboard();
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    logout() {
-        this.token = null;
-        this.currentUser = null;
-        localStorage.removeItem('yoga_therapy_token');
-        this.showAuthScreen();
-    }
-
-    // Dashboard methods
-    showDashboard() {
-        document.getElementById('auth-screen').classList.add('hidden');
         
-        if (this.currentUser.role === 'instructor') {
-            document.getElementById('instructor-dashboard').classList.remove('hidden');
-            document.getElementById('patient-dashboard').classList.add('hidden');
-            document.getElementById('user-name').textContent = this.currentUser.name;
-            this.showView('dashboard');
+        // Hacer disponible globalmente
+        window.SOFTZEN_DEMO_CREDENTIALS = demoCredentials;
+        
+        // Agregar botones de autocompletado
+        setTimeout(() => {
+            this.addDemoButtons(demoCredentials);
+        }, 1000);
+        
+        // Detectar y manejar credenciales demo en formularios
+        this.setupDemoDetection(demoCredentials);
+    }
+
+    addDemoButtons(credentials) {
+        const demoSection = document.querySelector('.auth-demo');
+        if (!demoSection) return;
+
+        // Crear contenedor de botones si no existe
+        let buttonContainer = demoSection.querySelector('.demo-buttons');
+        if (!buttonContainer) {
+            buttonContainer = document.createElement('div');
+            buttonContainer.className = 'demo-buttons';
+            buttonContainer.style.cssText = `
+                margin-top: 15px;
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                justify-content: center;
+            `;
+            demoSection.appendChild(buttonContainer);
+        }
+
+        // Crear botones para cada tipo de usuario
+        Object.entries(credentials).forEach(([type, creds]) => {
+            const button = document.createElement('button');
+            button.className = `demo-btn demo-btn-${type}`;
+            button.type = 'button';
+            button.innerHTML = `
+                <span style="margin-right: 5px;">${type === 'instructor' ? '👨‍⚕️' : '🧘‍♀️'}</span>
+                Usar ${type === 'instructor' ? 'Instructor' : 'Paciente'}
+            `;
+            
+            button.style.cssText = `
+                padding: 8px 16px;
+                background: ${type === 'instructor' ? '#7c3aed' : '#06b6d4'};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 500;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                min-width: 120px;
+                justify-content: center;
+            `;
+            
+            // Efectos hover
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-1px)';
+                button.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                button.style.background = type === 'instructor' ? '#6d28d9' : '#0891b2';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0)';
+                button.style.boxShadow = 'none';
+                button.style.background = type === 'instructor' ? '#7c3aed' : '#06b6d4';
+            });
+            
+            // Evento click
+            button.addEventListener('click', () => {
+                this.fillDemoCredentials(type, creds);
+            });
+            
+            buttonContainer.appendChild(button);
+        });
+
+        console.log('✅ Botones demo agregados');
+    }
+
+    fillDemoCredentials(type, credentials) {
+        console.log(`🎮 Llenando credenciales demo: ${type}`);
+        
+        // Determinar formulario activo
+        const loginFormActive = this.elements.loginForm?.closest('.auth-form')?.classList.contains('active');
+        
+        if (loginFormActive) {
+            // Llenar formulario de login
+            if (this.elements.loginEmail) {
+                this.elements.loginEmail.value = credentials.email;
+                this.elements.loginEmail.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            if (this.elements.loginPassword) {
+                this.elements.loginPassword.value = credentials.password;
+                this.elements.loginPassword.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            this.showNotification(`Credenciales ${type} aplicadas al login`, 'success');
+            
         } else {
-            document.getElementById('patient-dashboard').classList.remove('hidden');
-            document.getElementById('instructor-dashboard').classList.add('hidden');
-            document.getElementById('patient-navbar-name').textContent = this.currentUser.name;
-            this.loadPatientDashboard();
+            // Llenar formulario de registro
+            if (this.elements.registerEmail) {
+                this.elements.registerEmail.value = credentials.email;
+                this.elements.registerEmail.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            if (this.elements.registerPassword) {
+                this.elements.registerPassword.value = credentials.password;
+                this.elements.registerPassword.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            if (this.elements.registerName) {
+                this.elements.registerName.value = credentials.displayName;
+                this.elements.registerName.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            if (this.elements.registerRole) {
+                this.elements.registerRole.value = credentials.role;
+                this.elements.registerRole.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
+            this.showNotification(`Credenciales ${type} aplicadas al registro`, 'success');
+        }
+        
+        // Animar los campos
+        this.animateFields([
+            this.elements.loginEmail || this.elements.registerEmail,
+            this.elements.loginPassword || this.elements.registerPassword,
+            this.elements.registerName,
+            this.elements.registerRole
+        ].filter(Boolean));
+    }
+
+    setupDemoDetection(credentials) {
+        // Detectar cuando se escriben credenciales demo manualmente
+        const emailFields = [this.elements.loginEmail, this.elements.registerEmail].filter(Boolean);
+        
+        emailFields.forEach(field => {
+            field.addEventListener('input', (e) => {
+                const email = e.target.value.trim();
+                const demoType = this.detectDemoEmail(email, credentials);
+                
+                if (demoType) {
+                    this.highlightDemoField(field, true);
+                } else {
+                    this.highlightDemoField(field, false);
+                }
+            });
+        });
+    }
+
+    detectDemoEmail(email, credentials) {
+        for (const [type, creds] of Object.entries(credentials)) {
+            if (creds.email === email) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    highlightDemoField(field, isDemo) {
+        if (isDemo) {
+            field.style.borderColor = '#22c55e';
+            field.style.boxShadow = '0 0 0 1px #22c55e';
+        } else {
+            field.style.borderColor = '';
+            field.style.boxShadow = '';
         }
     }
 
-    // Utility methods for notifications
-    showSuccess(message) {
-        this.showNotification(message, 'success');
+    animateFields(fields) {
+        fields.forEach((field, index) => {
+            if (field) {
+                setTimeout(() => {
+                    field.style.transition = 'transform 0.3s, box-shadow 0.3s';
+                    field.style.transform = 'scale(1.02)';
+                    field.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)';
+                    
+                    setTimeout(() => {
+                        field.style.transform = 'scale(1)';
+                        field.style.boxShadow = '';
+                    }, 300);
+                }, index * 100);
+            }
+        });
     }
 
-    showError(message) {
-        this.showNotification(message, 'error');
+    // ===================================================================
+    // MANEJO DE AUTENTICACIÓN
+    // ===================================================================
+
+    async handleLogin(event) {
+        event.preventDefault();
+        
+        const email = this.elements.loginEmail?.value.trim();
+        const password = this.elements.loginPassword?.value;
+        
+        if (!email || !password) {
+            this.showNotification('Por favor completa todos los campos', 'error');
+            return;
+        }
+        
+        console.log('🔐 Intentando login con:', email);
+        
+        this.setButtonLoading(this.elements.loginBtn, true);
+        
+        try {
+            // Usar el servicio de Firebase
+            const result = await firebaseService.signInWithEmailAndPassword(email, password);
+            
+            if (result?.user) {
+                console.log('✅ Login exitoso:', result.user.email);
+                this.showNotification('¡Bienvenido a SoftZen!', 'success');
+                
+                // El listener de auth state se encarga del resto
+            } else {
+                throw new Error('No se pudo autenticar el usuario');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error en login:', error);
+            
+            let errorMessage = 'Error de autenticación';
+            
+            if (error.code) {
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage = 'Usuario no encontrado';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage = 'Contraseña incorrecta';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage = 'Email inválido';
+                        break;
+                    case 'auth/too-many-requests':
+                        errorMessage = 'Demasiados intentos. Intenta más tarde';
+                        break;
+                    default:
+                        errorMessage = error.message || 'Error desconocido';
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+            
+        } finally {
+            this.setButtonLoading(this.elements.loginBtn, false);
+        }
+    }
+
+    async handleRegister(event) {
+        event.preventDefault();
+        
+        const email = this.elements.registerEmail?.value.trim();
+        const password = this.elements.registerPassword?.value;
+        const name = this.elements.registerName?.value.trim();
+        const role = this.elements.registerRole?.value;
+        
+        if (!email || !password || !name || !role) {
+            this.showNotification('Por favor completa todos los campos', 'error');
+            return;
+        }
+        
+        if (password.length < 6) {
+            this.showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+            return;
+        }
+        
+        console.log('📝 Intentando registro con:', email);
+        
+        this.setButtonLoading(this.elements.registerBtn, true);
+        
+        try {
+            if (!this.services?.auth) {
+                throw new Error('Servicio de autenticación no disponible');
+            }
+            
+            // Crear usuario
+            const result = await this.services.auth.createUserWithEmailAndPassword(email, password);
+            
+            if (result?.user) {
+                // Actualizar perfil
+                await result.user.updateProfile({
+                    displayName: name
+                });
+                
+                // Crear documento del usuario
+                if (this.services.db) {
+                    await this.services.db.collection('users').doc(result.user.uid).set({
+                        uid: result.user.uid,
+                        email: email,
+                        name: name,
+                        role: role,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                console.log('✅ Registro exitoso:', result.user.email);
+                this.showNotification('¡Cuenta creada exitosamente!', 'success');
+                
+                // El listener de auth state se encarga del resto
+            }
+            
+        } catch (error) {
+            console.error('❌ Error en registro:', error);
+            
+            let errorMessage = 'Error creando cuenta';
+            
+            if (error.code) {
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        errorMessage = 'El email ya está registrado';
+                        break;
+                    case 'auth/weak-password':
+                        errorMessage = 'La contraseña es muy débil';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage = 'Email inválido';
+                        break;
+                    default:
+                        errorMessage = error.message || 'Error desconocido';
+                }
+            }
+            
+            this.showNotification(errorMessage, 'error');
+            
+        } finally {
+            this.setButtonLoading(this.elements.registerBtn, false);
+        }
+    }
+
+    async handleLogout() {
+        console.log('👋 Cerrando sesión...');
+        
+        try {
+            await firebaseService.signOut();
+            
+            this.showNotification('Sesión cerrada', 'info');
+            
+            // El listener de auth state se encarga del resto
+            
+        } catch (error) {
+            console.error('❌ Error en logout:', error);
+            this.showNotification('Error cerrando sesión', 'error');
+        }
+    }
+
+    // ===================================================================
+    // MANEJO DE ESTADO DE USUARIO
+    // ===================================================================
+
+    async handleUserSignedIn(user) {
+        console.log('👤 Usuario logueado:', user.email);
+        
+        this.currentUser = user;
+        
+        // Cargar datos del usuario
+        await this.loadUserData(user.uid);
+        
+        // Actualizar interfaz
+        this.updateUserInterface(user);
+        
+        // Cambiar a vista de dashboard
+        this.switchView('dashboard');
+    }
+
+    async handleUserSignedOut() {
+        console.log('👤 Usuario deslogueado');
+        
+        this.currentUser = null;
+        
+        // Limpiar datos
+        window.currentUserData = null;
+        
+        // Actualizar interfaz
+        this.updateUserInterface(null);
+        
+        // Cambiar a vista de auth
+        this.switchView('auth');
+    }
+
+    async loadUserData(userId) {
+        try {
+            if (this.services?.db) {
+                const userDoc = await this.services.db.collection('users').doc(userId).get();
+                
+                if (userDoc.exists) {
+                    window.currentUserData = userDoc.data();
+                    console.log('📄 Datos de usuario cargados');
+                } else {
+                    console.log('📄 Documento de usuario no encontrado');
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Error cargando datos de usuario:', error);
+        }
+    }
+
+    updateUserInterface(user) {
+        if (user) {
+            // Mostrar información del usuario
+            if (this.elements.userDisplayName) {
+                this.elements.userDisplayName.textContent = user.displayName || user.email;
+            }
+            
+            if (this.elements.userRole && window.currentUserData?.role) {
+                this.elements.userRole.textContent = window.currentUserData.role === 'instructor' ? 'Instructor' : 'Paciente';
+            }
+            
+            if (this.elements.navUserInfo) {
+                this.elements.navUserInfo.style.display = 'flex';
+            }
+            
+        } else {
+            // Ocultar información del usuario
+            if (this.elements.navUserInfo) {
+                this.elements.navUserInfo.style.display = 'none';
+            }
+        }
+    }
+
+    // ===================================================================
+    // GESTIÓN DE VISTAS
+    // ===================================================================
+
+    switchView(viewName) {
+        console.log(`🔄 Cambiando a vista: ${viewName}`);
+        
+        this.currentView = viewName;
+        
+        if (viewName === 'auth') {
+            if (this.elements.authContainer) {
+                this.elements.authContainer.style.display = 'block';
+            }
+            if (this.elements.dashboardContainer) {
+                this.elements.dashboardContainer.style.display = 'none';
+            }
+        } else if (viewName === 'dashboard') {
+            if (this.elements.authContainer) {
+                this.elements.authContainer.style.display = 'none';
+            }
+            if (this.elements.dashboardContainer) {
+                this.elements.dashboardContainer.style.display = 'block';
+            }
+            
+            // Cargar contenido del dashboard
+            this.loadDashboardContent();
+        }
+    }
+
+    loadDashboardContent() {
+        const dashboardContent = document.getElementById('dashboard-content');
+        if (!dashboardContent) return;
+        
+        const user = this.currentUser;
+        const userData = window.currentUserData;
+        
+        dashboardContent.innerHTML = `
+            <div class="dashboard-welcome">
+                <div class="welcome-header">
+                    <h2>¡Bienvenido a SoftZen!</h2>
+                    <p>Hola ${user?.displayName || user?.email || 'Usuario'}, tu plataforma de yoga terapéutico está lista.</p>
+                </div>
+                
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <h3>👤 Perfil</h3>
+                        <p><strong>Rol:</strong> ${userData?.role === 'instructor' ? 'Instructor' : 'Paciente'}</p>
+                        <p><strong>Email:</strong> ${user?.email}</p>
+                        ${userData?.isDemo ? '<p><span style="color: #f59e0b;">🎮 Usuario Demo</span></p>' : ''}
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>🔧 Estado</h3>
+                        <p><strong>Sistema:</strong> Funcionando</p>
+                        <p><strong>Conexión:</strong> ${this.state.isOnline ? 'Online' : 'Offline'}</p>
+                        <p><strong>Firebase:</strong> ${this.services ? 'Conectado' : 'Desconectado'}</p>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>📊 Información</h3>
+                        <p><strong>Sesiones:</strong> Próximamente</p>
+                        <p><strong>Progreso:</strong> En desarrollo</p>
+                        <p><strong>Última conexión:</strong> Ahora</p>
+                    </div>
+                </div>
+                
+                <div class="dashboard-actions">
+                    <h3>🎯 Acciones rápidas</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="alert('Función en desarrollo')">
+                            <span>📅</span> Ver Calendario
+                        </button>
+                        <button class="action-btn" onclick="alert('Función en desarrollo')">
+                            <span>🧘‍♀️</span> Nueva Sesión
+                        </button>
+                        <button class="action-btn" onclick="alert('Función en desarrollo')">
+                            <span>📈</span> Ver Progreso
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Agregar estilos inline si no existen
+        if (!document.getElementById('dashboard-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'dashboard-styles';
+            styles.textContent = `
+                .dashboard-welcome {
+                    padding: 20px;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+                
+                .welcome-header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+                
+                .welcome-header h2 {
+                    color: #6366f1;
+                    margin-bottom: 10px;
+                }
+                
+                .dashboard-stats {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                
+                .stat-card {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    border: 1px solid #e5e7eb;
+                }
+                
+                .stat-card h3 {
+                    margin: 0 0 15px 0;
+                    color: #374151;
+                    font-size: 18px;
+                }
+                
+                .stat-card p {
+                    margin: 8px 0;
+                    color: #6b7280;
+                }
+                
+                .dashboard-actions {
+                    text-align: center;
+                }
+                
+                .action-buttons {
+                    display: flex;
+                    gap: 15px;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                    margin-top: 20px;
+                }
+                
+                .action-btn {
+                    padding: 12px 24px;
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: background 0.2s;
+                }
+                
+                .action-btn:hover {
+                    background: #5855eb;
+                }
+                
+                @media (max-width: 768px) {
+                    .dashboard-stats {
+                        grid-template-columns: 1fr;
+                    }
+                    
+                    .action-buttons {
+                        flex-direction: column;
+                        align-items: center;
+                    }
+                    
+                    .action-btn {
+                        width: 200px;
+                        justify-content: center;
+                    }
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+    }
+
+    // ===================================================================
+    // MANEJO DE EVENTOS DE INTERFAZ
+    // ===================================================================
+
+    handleTabSwitch(event) {
+        const tab = event.target.closest('.auth-tab');
+        if (!tab) return;
+        
+        const tabType = tab.dataset.tab;
+        if (!tabType) return;
+        
+        console.log(`🔄 Cambiando tab a: ${tabType}`);
+        
+        // Actualizar tabs activos
+        this.elements.authTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Mostrar formulario correspondiente
+        const authForms = document.querySelectorAll('.auth-form');
+        authForms.forEach(form => {
+            const shouldShow = form.id === `${tabType}Form`;
+            form.classList.toggle('active', shouldShow);
+        });
+        
+        // Focus en primer campo del formulario activo
+        setTimeout(() => {
+            const activeForm = document.querySelector('.auth-form.active');
+            if (activeForm) {
+                const firstInput = activeForm.querySelector('input:not([type="hidden"])');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }
+        }, 100);
+    }
+
+    handleRoleChange(event) {
+        const role = event.target.value;
+        const instructorFields = document.getElementById('instructorFields');
+        
+        if (instructorFields) {
+            const shouldShow = role === 'instructor';
+            instructorFields.style.display = shouldShow ? 'block' : 'none';
+            
+            // Actualizar required del campo specialty
+            const specialtySelect = document.getElementById('registerSpecialty');
+            if (specialtySelect) {
+                specialtySelect.required = shouldShow;
+            }
+        }
+    }
+
+    handleConnectivityChange(isOnline) {
+        console.log(`🌐 Conectividad: ${isOnline ? 'Online' : 'Offline'}`);
+        
+        this.state.isOnline = isOnline;
+        
+        if (isOnline) {
+            this.showNotification('Conexión restaurada', 'success');
+        } else {
+            this.showNotification('Sin conexión - Trabajando offline', 'warning');
+        }
+    }
+
+    handleAppReady(event) {
+        console.log('🎉 App completamente lista:', event.detail);
+    }
+
+    // ===================================================================
+    // UTILIDADES
+    // ===================================================================
+
+    async checkAuthState() {
+        console.log('🔍 Verificando estado de autenticación...');
+        
+        if (this.services?.auth?.currentUser) {
+            await this.handleUserSignedIn(this.services.auth.currentUser);
+        } else {
+            await this.handleUserSignedOut();
+        }
+    }
+
+    setupAuthentication() {
+        console.log('🔐 Configurando sistema de autenticación...');
+    }
+
+    setupInitialInterface() {
+        console.log('🎨 Configurando interfaz inicial...');
+        
+        // Asegurar que la vista correcta esté visible
+        this.switchView('auth');
+        
+        // Configurar tema
+        document.body.classList.add('softzen-theme');
+    }
+
+    setButtonLoading(button, loading) {
+        if (!button) return;
+        
+        const btnText = button.querySelector('.btn-text');
+        const btnLoading = button.querySelector('.btn-loading');
+        
+        if (loading) {
+            button.disabled = true;
+            if (btnText) btnText.style.display = 'none';
+            if (btnLoading) btnLoading.style.display = 'flex';
+            button.style.opacity = '0.7';
+        } else {
+            button.disabled = false;
+            if (btnText) btnText.style.display = 'inline';
+            if (btnLoading) btnLoading.style.display = 'none';
+            button.style.opacity = '1';
+        }
     }
 
     showNotification(message, type = 'info') {
-        // Remover notificaciones existentes
-        document.querySelectorAll('.notification').forEach(n => n.remove());
+        console.log(`📢 ${type.toUpperCase()}: ${message}`);
+        
+        // Crear notificación visual
+        this.createVisualNotification(message, type);
+        
+        // Agregar a estado
+        this.state.notifications.unshift({
+            id: Date.now(),
+            message,
+            type,
+            timestamp: new Date()
+        });
+        
+        // Mantener solo las últimas 10 notificaciones
+        if (this.state.notifications.length > 10) {
+            this.state.notifications = this.state.notifications.slice(0, 10);
+        }
+    }
+
+    createVisualNotification(message, type) {
+        const container = document.getElementById('notifications-container') || document.body;
         
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
+        
+        const colors = {
+            success: '#22c55e',
+            error: '#ef4444', 
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+        
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+        
+        notification.innerHTML = `
+            <span style="margin-right: 8px;">${icons[type] || icons.info}</span>
+            ${message}
+        `;
+        
         notification.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            padding: 1rem 1.5rem;
-            background: ${type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#667eea'};
+            padding: 12px 20px;
+            background: ${colors[type] || colors.info};
             color: white;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             z-index: 10000;
-            animation: slideInRight 0.3s ease;
-            max-width: 400px;
-            word-wrap: break-word;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
         `;
-        notification.textContent = message;
-
-        document.body.appendChild(notification);
-
+        
+        container.appendChild(notification);
+        
+        // Animación de entrada
+        requestAnimationFrame(() => {
+            notification.style.transform = 'translateX(0)';
+        });
+        
+        // Auto-remove
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
+            notification.style.transform = 'translateX(100%)';
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.parentNode.removeChild(notification);
@@ -357,998 +1010,67 @@ class YogaTherapyApp {
         }, 4000);
     }
 
-    showView(viewName) {
-        if (this.currentUser.role !== 'instructor') return;
-
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
+    handleInitializationError(error) {
+        console.error('🚨 Error crítico de inicialización:', error);
         
-        document.querySelectorAll('.view').forEach(view => {
-            view.classList.add('hidden');
-        });
-
-        document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
-        document.getElementById(`${viewName}-view`).classList.remove('hidden');
-
-        this.currentView = viewName;
-
-        // Load data for specific views
-        switch (viewName) {
-            case 'dashboard':
-                this.loadDashboard();
-                break;
-            case 'patients':
-                this.loadPatients();
-                break;
-            case 'series':
-                this.loadSeries();
-                break;
-            case 'create-series':
-                this.loadTherapyTypes();
-                break;
-        }
-    }
-
-    async loadDashboard() {
-        try {
-            const response = await this.apiCall('/dashboard/instructor');
-            this.renderDashboard(response);
-        } catch (error) {
-            this.showError('Error cargando dashboard: ' + error.message);
-        }
-    }
-
-    renderDashboard(data) {
-        const container = document.getElementById('dashboard-content');
+        this.showNotification('Error de inicialización - Funcionalidad limitada', 'error');
         
-        container.innerHTML = `
-            <div class="dashboard-grid">
-                <div class="metric-card">
-                    <div class="metric-icon">👥</div>
-                    <div class="metric-content">
-                        <h3>Total Pacientes</h3>
-                        <div class="metric-value">${data.overview.total_patients}</div>
-                        <div class="metric-subtitle">${data.overview.active_patients} activos</div>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-icon">🧘‍♀️</div>
-                    <div class="metric-content">
-                        <h3>Series Creadas</h3>
-                        <div class="metric-value">${data.overview.total_series}</div>
-                        <div class="metric-subtitle">Series terapéuticas</div>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-icon">📊</div>
-                    <div class="metric-content">
-                        <h3>Sesiones Totales</h3>
-                        <div class="metric-value">${data.overview.total_sessions}</div>
-                        <div class="metric-subtitle">Completadas</div>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-icon">📈</div>
-                    <div class="metric-content">
-                        <h3>Mejora Promedio</h3>
-                        <div class="metric-value">${data.overview.avg_pain_improvement || 0}</div>
-                        <div class="metric-subtitle">Puntos de dolor</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="dashboard-charts">
-                <div class="chart-container">
-                    <h3>📊 Progreso de Pacientes</h3>
-                    <div class="patients-progress">
-                        ${data.patients_progress.map(patient => `
-                            <div class="patient-progress-item">
-                                <div class="patient-info">
-                                    <span class="patient-name">${patient.name}</span>
-                                    <span class="patient-sessions">${patient.current_session}/${patient.total_sessions} sesiones</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${patient.progress_percentage}%"></div>
-                                </div>
-                                <div class="progress-percentage">${patient.progress_percentage}%</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <div class="chart-container">
-                    <h3>🎯 Tipos de Terapia</h3>
-                    <div class="therapy-distribution">
-                        ${data.therapy_types.map(therapy => `
-                            <div class="therapy-item">
-                                <div class="therapy-label">${therapy.therapy_type_name}</div>
-                                <div class="therapy-bar">
-                                    <div class="therapy-fill" style="width: ${Math.max(therapy.patients_count * 10, 5)}%"></div>
-                                </div>
-                                <div class="therapy-count">${therapy.patients_count}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <h3>📈 Actividad Reciente</h3>
-                <div class="recent-activity">
-                    ${data.recent_activity.map(activity => `
-                        <div class="session-item">
-                            <div class="session-header-info">
-                                <h4>${activity.patient_name}</h4>
-                                <span class="session-date">${activity.date_formatted}</span>
-                            </div>
-                            <div class="pain-indicators">
-                                <span class="pain-indicator pain-before">Dolor inicial: ${activity.pain_before}</span>
-                                <span class="pain-indicator pain-after">Dolor final: ${activity.pain_after}</span>
-                                <span class="pain-indicator">Mejora: ${activity.pain_improvement} puntos</span>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    // Patient methods
-    async loadPatients() {
-        try {
-            const response = await this.apiCall('/patients');
-            this.renderPatients(response);
-        } catch (error) {
-            this.showError('Error cargando pacientes: ' + error.message);
-        }
-    }
-
-    renderPatients(patients) {
-        const container = document.getElementById('patients-list');
-        
-        if (patients.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <h3>No hay pacientes registrados</h3>
-                    <p>Haz clic en "Agregar Paciente" para comenzar</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = patients.map(patient => `
-            <div class="card patient-card">
-                <div class="card-header">
-                    <div>
-                        <h3 class="card-title">${patient.name}</h3>
-                        <p>${patient.email}</p>
-                        <p>Edad: ${patient.age} años</p>
-                    </div>
-                </div>
-                
-                <div class="series-status ${patient.has_series ? 'assigned' : 'unassigned'}">
-                    ${patient.has_series ? `
-                        <div class="series-info">
-                            <strong>Serie: ${patient.series_name}</strong>
-                            <div class="progress-container">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${patient.progress_percentage}%"></div>
-                                </div>
-                                <span class="progress-text">${patient.progress_percentage}%</span>
-                            </div>
-                            <p>Sesiones: ${patient.current_session}/${patient.total_sessions}</p>
-                        </div>
-                    ` : `
-                        <p>⚠️ Sin serie asignada</p>
-                    `}
-                </div>
-
-                <div class="card-actions">
-                    <button class="btn-small btn-primary" onclick="app.viewPatientDetails(${patient.id})">
-                        Ver Detalles
-                    </button>
-                    <button class="btn-small btn-secondary" onclick="app.viewPatientSessions(${patient.id})">
-                        Historial
-                    </button>
-                    ${!patient.has_series ? `
-                        <button class="btn-small btn-primary" onclick="app.showAssignSeriesModal(${patient.id})">
-                            Asignar Serie
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    showPatientModal(patient = null) {
-        const modal = document.getElementById('patient-modal');
-        const title = document.getElementById('patient-modal-title');
-        const form = document.getElementById('patient-form');
-        
-        if (patient) {
-            title.textContent = 'Editar Paciente';
-            document.getElementById('patient-name').value = patient.name;
-            document.getElementById('patient-email').value = patient.email;
-            document.getElementById('patient-age').value = patient.age;
-            document.getElementById('patient-condition').value = patient.condition || '';
-        } else {
-            title.textContent = 'Agregar Paciente';
-            form.reset();
-        }
-
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            this.handlePatientForm(patient?.id);
-        };
-
-        modal.classList.remove('hidden');
-    }
-
-    async handlePatientForm(patientId = null) {
-        const formData = {
-            name: document.getElementById('patient-name').value,
-            email: document.getElementById('patient-email').value,
-            age: parseInt(document.getElementById('patient-age').value),
-            condition: document.getElementById('patient-condition').value
-        };
-
-        try {
-            const endpoint = patientId ? `/patients/${patientId}` : '/patients';
-            const method = patientId ? 'PUT' : 'POST';
-            
-            const response = await this.apiCall(endpoint, {
-                method,
-                body: JSON.stringify(formData)
-            });
-
-            this.showSuccess(response.message);
-            this.hideModal();
-            this.loadPatients();
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    async viewPatientDetails(patientId) {
-        try {
-            const response = await this.apiCall(`/patients/${patientId}`);
-            this.showPatientDetailsModal(response);
-        } catch (error) {
-            this.showError('Error cargando detalles del paciente: ' + error.message);
-        }
-    }
-
-    showPatientDetailsModal(data) {
-        const modal = document.getElementById('patient-details-modal');
-        const content = document.getElementById('patient-details-content');
-        
-        content.innerHTML = `
-            <div class="patient-details-header">
-                <h3>${data.patient.name}</h3>
-                <div class="patient-basic-info">
-                    <p><strong>Email:</strong> ${data.patient.user_email || data.patient.email}</p>
-                    <p><strong>Edad:</strong> ${data.patient.age} años</p>
-                    <p><strong>Condición:</strong> ${data.patient.condition || 'No especificada'}</p>
-                    <p><strong>Contacto de emergencia:</strong> ${data.patient.emergency_contact || 'No registrado'}</p>
-                </div>
-            </div>
-
-            ${data.patient.series_name ? `
-                <div class="patient-series-details">
-                    <h4>📋 Serie Actual</h4>
-                    <div class="current-series">
-                        <div class="series-summary">
-                            <p><strong>Serie:</strong> ${data.patient.series_name}</p>
-                            <p><strong>Tipo:</strong> ${data.patient.therapy_type}</p>
-                            <p><strong>Progreso:</strong> ${data.patient.current_session}/${data.patient.total_sessions} sesiones</p>
-                        </div>
-                        <div class="progress-circle">
-                            ${Math.round((data.patient.current_session / data.patient.total_sessions) * 100)}%
-                        </div>
-                    </div>
-                </div>
-            ` : `
-                <div class="no-series">
-                    <h4>⚠️ Sin serie asignada</h4>
-                    <p>Este paciente no tiene una serie terapéutica asignada.</p>
-                </div>
-            `}
-
-            <div class="patient-stats">
-                <h4>📊 Estadísticas</h4>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Sesiones Totales</span>
-                        <span class="stat-value">${data.stats.total_sessions}</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Dolor Promedio Inicial</span>
-                        <span class="stat-value">${data.stats.avg_pain_before}/10</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Dolor Promedio Final</span>
-                        <span class="stat-value">${data.stats.avg_pain_after}/10</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Mejora Promedio</span>
-                        <span class="stat-value ${data.stats.avg_improvement > 0 ? 'positive' : ''}">${data.stats.avg_improvement}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        modal.classList.remove('hidden');
-    }
-
-    // Series methods
-    async loadSeries() {
-        try {
-            const response = await this.apiCall('/series');
-            this.renderSeries(response.data || response);
-        } catch (error) {
-            this.showError('Error cargando series: ' + error.message);
-        }
-    }
-
-    renderSeries(series) {
-        const container = document.getElementById('series-list');
-        
-        if (series.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <h3>No hay series creadas</h3>
-                    <p>Haz clic en "Crear Nueva Serie" para comenzar</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = series.map(s => `
-            <div class="card">
-                <div class="card-header">
-                    <div>
-                        <h3 class="card-title">${s.name}</h3>
-                        <p><strong>Tipo:</strong> ${s.therapy_type_name}</p>
-                        <p><strong>Sesiones:</strong> ${s.total_sessions}</p>
-                        <p><strong>Posturas:</strong> ${s.postures.length}</p>
-                        <p><strong>Duración estimada:</strong> ${s.estimated_duration} min</p>
-                    </div>
-                </div>
-                
-                <div class="series-info">
-                    <p><strong>Pacientes asignados:</strong> ${s.assigned_patients_count}</p>
-                    <p><strong>Sesiones completadas:</strong> ${s.total_sessions_count}</p>
-                    ${s.avg_pain_improvement > 0 ? `
-                        <p><strong>Mejora promedio:</strong> ${s.avg_pain_improvement} puntos</p>
-                    ` : ''}
-                </div>
-
-                <div class="card-actions">
-                    <button class="btn-small btn-primary" onclick="app.viewSeriesDetails(${s.id})">
-                        Ver Detalles
-                    </button>
-                    <button class="btn-small btn-secondary" onclick="app.duplicateSeries(${s.id})">
-                        Duplicar
-                    </button>
-                    ${s.assigned_patients_count === 0 ? `
-                        <button class="btn-small btn-secondary" onclick="app.deleteSeries(${s.id})">
-                            Eliminar
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    async loadTherapyTypes() {
-        try {
-            const response = await this.apiCall('/series/therapy-types');
-            this.renderTherapyTypes(response.data || response);
-        } catch (error) {
-            this.showError('Error cargando tipos de terapia: ' + error.message);
-        }
-    }
-
-    renderTherapyTypes(types) {
-        const select = document.getElementById('therapy-type');
-        select.innerHTML = '<option value="">Seleccionar tipo de terapia</option>';
-        
-        types.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.id;
-            option.textContent = type.name;
-            select.appendChild(option);
-        });
-    }
-
-    async loadTherapyPostures(therapyType) {
-        if (!therapyType) {
-            document.getElementById('postures-section').classList.add('hidden');
-            return;
-        }
-
-        try {
-            const response = await this.apiCall('/series/therapy-types');
-            const types = response.data || response;
-            const selectedType = types.find(t => t.id === therapyType);
-            
-            if (selectedType) {
-                this.renderTherapyPostures(selectedType.postures);
-                document.getElementById('postures-section').classList.remove('hidden');
-            }
-        } catch (error) {
-            this.showError('Error cargando posturas: ' + error.message);
-        }
-    }
-
-    renderTherapyPostures(postures) {
-        const container = document.getElementById('available-postures');
-        
-        container.innerHTML = postures.map(posture => `
-            <div class="posture-card" data-posture-id="${posture.id}">
-                <div class="contenedor-img">
-                    <img src="${posture.image}" alt="${posture.name}" onerror="this.src='https://via.placeholder.com/300x200?text=Postura'">
-                </div>
-                <div class="card-content">
-                    <h4>${posture.name}</h4>
-                    <p class="sanskrit">${posture.sanskrit}</p>
-                    <p class="posture-benefits">${posture.benefits.substring(0, 100)}...</p>
-                    <p class="posture-duration">Duración sugerida: ${posture.defaultDuration} min</p>
-                </div>
-            </div>
-        `).join('');
-
-        // Add click listeners to posture cards
-        container.querySelectorAll('.posture-card').forEach(card => {
-            card.addEventListener('click', () => {
-                this.togglePostureSelection(card, postures);
-            });
-        });
-    }
-
-    togglePostureSelection(card, allPostures) {
-        const postureId = parseInt(card.dataset.postureId);
-        const posture = allPostures.find(p => p.id === postureId);
-        
-        if (card.classList.contains('selected')) {
-            card.classList.remove('selected');
-            this.removeSelectedPosture(postureId);
-        } else {
-            card.classList.add('selected');
-            this.addSelectedPosture(posture);
-        }
-    }
-
-    addSelectedPosture(posture) {
-        const container = document.getElementById('selected-postures');
-        const existingPosture = container.querySelector(`[data-posture-id="${posture.id}"]`);
-        
-        if (existingPosture) return;
-
-        const postureElement = document.createElement('div');
-        postureElement.className = 'selected-posture';
-        postureElement.dataset.postureId = posture.id;
-        postureElement.innerHTML = `
-            <div>
-                <strong>${posture.name}</strong>
-                <p>${posture.sanskrit}</p>
-            </div>
-            <div class="posture-duration">
-                <label>Duración (min):</label>
-                <input type="number" min="1" max="60" value="${posture.defaultDuration}" class="duration-input">
-                <button type="button" class="btn-small btn-secondary" onclick="this.parentElement.parentElement.remove(); app.updatePostureSelection()">✕</button>
-            </div>
-        `;
-
-        container.appendChild(postureElement);
-        this.updatePostureSelection();
-    }
-
-    removeSelectedPosture(postureId) {
-        const container = document.getElementById('selected-postures');
-        const postureElement = container.querySelector(`[data-posture-id="${postureId}"]`);
-        if (postureElement) {
-            postureElement.remove();
-            this.updatePostureSelection();
-        }
-    }
-
-    updatePostureSelection() {
-        const container = document.getElementById('selected-postures');
-        const selectedPostures = container.querySelectorAll('.selected-posture');
-        
-        if (selectedPostures.length === 0) {
-            container.innerHTML = '<p>Selecciona posturas de la lista anterior</p>';
-        }
-    }
-
-    async handleCreateSeries() {
-        const formData = {
-            name: document.getElementById('series-name').value,
-            therapyType: document.getElementById('therapy-type').value,
-            totalSessions: parseInt(document.getElementById('total-sessions').value),
-            postures: this.getSelectedPostures()
-        };
-
-        if (formData.postures.length === 0) {
-            this.showError('Debe seleccionar al menos una postura');
-            return;
-        }
-
-        try {
-            const response = await this.apiCall('/series', {
-                method: 'POST',
-                body: JSON.stringify(formData)
-            });
-
-            this.showSuccess(response.message);
-            this.showView('series');
-            document.getElementById('create-series-form').reset();
-            // CORREGIDO: Limpiar sección de posturas
-            document.getElementById('postures-section').classList.add('hidden');
-            document.getElementById('selected-postures').innerHTML = '<p>Selecciona posturas de la lista anterior</p>';
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    getSelectedPostures() {
-        const selectedPostures = [];
-        const container = document.getElementById('selected-postures');
-        
-        container.querySelectorAll('.selected-posture').forEach(element => {
-            const postureId = parseInt(element.dataset.postureId);
-            const duration = parseInt(element.querySelector('.duration-input').value);
-            const name = element.querySelector('strong').textContent;
-            
-            selectedPostures.push({
-                id: postureId,
-                name: name,
-                duration: duration
-            });
-        });
-
-        return selectedPostures;
-    }
-
-    // Patient Dashboard
-    async loadPatientDashboard() {
-        try {
-            const response = await this.apiCall('/dashboard/patient');
-            this.renderPatientDashboard(response);
-        } catch (error) {
-            this.showError('Error cargando dashboard: ' + error.message);
-        }
-    }
-
-    renderPatientDashboard(data) {
-        const seriesDetails = document.getElementById('series-details');
-        const startButton = document.getElementById('start-session-btn');
-        
-        if (!data.series) {
-            seriesDetails.innerHTML = `
-                <div class="no-series">
-                    <h3>📋 No hay serie asignada</h3>
-                    <p>Tu instructor aún no te ha asignado una serie terapéutica. Contacta con tu instructor para más información.</p>
-                    <div class="instructor-info">
-                        <p><strong>Tu instructor:</strong> ${data.patient_info.instructor_name}</p>
-                        <p><strong>Email:</strong> ${data.patient_info.instructor_email}</p>
-                    </div>
-                </div>
-            `;
-            startButton.style.display = 'none';
-            return;
-        }
-
-        const series = data.series;
-        this.currentSeries = series;
-
-        seriesDetails.innerHTML = `
-            <div class="series-card">
-                <h3>${series.name}</h3>
-                <p class="series-description">${series.description}</p>
-                
-                <div class="series-progress">
-                    <div class="progress-info">
-                        <p><strong>Progreso:</strong> ${series.current_session}/${series.total_sessions} sesiones</p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${series.progress_percentage}%"></div>
-                        </div>
-                        <p class="progress-text">${series.progress_percentage}% completado</p>
-                    </div>
-                </div>
-
-                <div class="series-info">
-                    <p><strong>Tipo de terapia:</strong> ${series.therapy_type_name}</p>
-                    <p><strong>Posturas en la serie:</strong> ${series.postures.length}</p>
-                    <p><strong>Duración estimada:</strong> ${series.estimated_duration} minutos</p>
-                    <p><strong>Sesiones completadas:</strong> ${data.patient_info.total_sessions_completed}</p>
-                </div>
-
-                ${data.stats ? `
-                    <div class="patient-stats">
-                        <h4>📊 Tus Estadísticas</h4>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <span class="stat-label">Sesiones Realizadas</span>
-                                <span class="stat-value">${data.stats.total_completed}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Mejora Promedio</span>
-                                <span class="stat-value ${data.stats.avg_improvement > 0 ? 'positive' : ''}">${data.stats.avg_improvement}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Calificación Promedio</span>
-                                <span class="stat-value">${data.stats.avg_rating}/5</span>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-
-        // Show/hide start button based on completion status
-        if (series.is_completed) {
-            startButton.textContent = '🎉 Serie Completada';
-            startButton.disabled = true;
-            startButton.classList.add('btn-secondary');
-            startButton.classList.remove('btn-primary');
-        } else {
-            startButton.textContent = `▶️ Iniciar Sesión ${series.next_session || series.current_session + 1}`;
-            startButton.disabled = false;
-            startButton.classList.add('btn-primary');
-            startButton.classList.remove('btn-secondary');
-            startButton.style.display = 'block';
-        }
-    }
-
-    // Session methods
-    startSession() {
-        if (!this.currentSeries || this.currentSeries.is_completed) {
-            this.showError('No hay sesión disponible para iniciar');
-            return;
-        }
-
-        this.currentSessionData = {
-            postures: [...this.currentSeries.postures],
-            currentPostureIndex: 0,
-            painBefore: 0,
-            painAfter: 0,
-            startTime: new Date(),
-            posturesCompleted: 0
-        };
-
-        document.getElementById('patient-home').classList.add('hidden');
-        document.getElementById('session-view').classList.remove('hidden');
-        
-        // Show pre-session stage
-        this.showSessionStage('pre-session');
-    }
-
-    showSessionStage(stage) {
-        document.querySelectorAll('.session-stage').forEach(el => {
-            el.classList.add('hidden');
-        });
-        
-        document.getElementById(stage).classList.remove('hidden');
-    }
-
-    startPostures() {
-        const painBefore = document.getElementById('pain-before').value;
-        this.currentSessionData.painBefore = parseInt(painBefore);
-        
-        this.showSessionStage('posture-display');
-        this.showCurrentPosture();
-    }
-
-    showCurrentPosture() {
-        const posture = this.currentSessionData.postures[this.currentSessionData.currentPostureIndex];
-        const currentIndex = this.currentSessionData.currentPostureIndex + 1;
-        const totalPostures = this.currentSessionData.postures.length;
-
-        // Update progress
-        document.getElementById('current-posture').textContent = currentIndex;
-        document.getElementById('total-postures').textContent = totalPostures;
-
-        // Update posture info
-        document.getElementById('posture-name').textContent = posture.name;
-        document.getElementById('posture-sanskrit').textContent = posture.sanskrit || '';
-        document.getElementById('posture-instructions').textContent = posture.instructions || '';
-        document.getElementById('posture-benefits').textContent = posture.benefits || '';
-        document.getElementById('posture-modifications').textContent = posture.modifications || '';
-
-        // Update video
-        if (posture.videoUrl) {
-            const videoId = this.extractYouTubeVideoId(posture.videoUrl);
-            if (videoId) {
-                document.getElementById('posture-video').src = `https://www.youtube.com/embed/${videoId}`;
-            }
-        }
-
-        // Start timer
-        this.startPostureTimer(posture.duration * 60); // Convert minutes to seconds
-    }
-
-    extractYouTubeVideoId(url) {
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-        const match = url.match(regex);
-        return match ? match[1] : null;
-    }
-
-    startPostureTimer(durationSeconds) {
-        this.timerInterval = setInterval(() => {
-            if (durationSeconds <= 0) {
-                clearInterval(this.timerInterval);
-                this.nextPosture();
-                return;
-            }
-
-            const minutes = Math.floor(durationSeconds / 60);
-            const seconds = durationSeconds % 60;
-            
-            document.getElementById('timer-minutes').textContent = minutes.toString().padStart(2, '0');
-            document.getElementById('timer-seconds').textContent = seconds.toString().padStart(2, '0');
-            
-            durationSeconds--;
+        // Intentar cargar interfaz básica
+        setTimeout(() => {
+            this.setupInitialInterface();
         }, 1000);
     }
 
-    nextPosture() {
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-        }
-
-        this.currentSessionData.posturesCompleted++;
-        this.currentSessionData.currentPostureIndex++;
-
-        if (this.currentSessionData.currentPostureIndex >= this.currentSessionData.postures.length) {
-            this.showSessionStage('post-session');
-        } else {
-            this.showCurrentPosture();
-        }
+    dispatchEvent(eventName, detail) {
+        const event = new CustomEvent(eventName, { detail });
+        window.dispatchEvent(event);
     }
 
-    async completeSession() {
-        const painAfter = document.getElementById('pain-after').value;
-        const comments = document.getElementById('session-comments').value;
+    // ===================================================================
+    // API PÚBLICA
+    // ===================================================================
 
-        if (!comments || comments.trim().length < 10) {
-            this.showError('Los comentarios deben tener al menos 10 caracteres');
-            return;
-        }
-
-        const sessionData = {
-            painBefore: this.currentSessionData.painBefore,
-            painAfter: parseInt(painAfter),
-            comments: comments.trim(),
-            durationMinutes: Math.round((new Date() - this.currentSessionData.startTime) / 60000),
-            posturesCompleted: this.currentSessionData.posturesCompleted,
-            posturesSkipped: this.currentSessionData.postures.length - this.currentSessionData.posturesCompleted
-        };
-
-        try {
-            const response = await this.apiCall('/sessions', {
-                method: 'POST',
-                body: JSON.stringify(sessionData)
-            });
-
-            this.showSuccess(response.message);
-            
-            // Return to patient home and refresh dashboard
-            document.getElementById('session-view').classList.add('hidden');
-            document.getElementById('patient-home').classList.remove('hidden');
-            this.loadPatientDashboard();
-            
-        } catch (error) {
-            this.showError('Error completando sesión: ' + error.message);
-        }
+    getCurrentUser() {
+        return this.currentUser;
     }
 
-    // Modal methods
-    hideModal() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.classList.add('hidden');
-        });
+    getCurrentView() {
+        return this.currentView;
     }
 
-    // Additional methods for missing functionality
-    async showAssignSeriesModal(patientId) {
-        try {
-            const [seriesResponse] = await Promise.all([
-                this.apiCall('/series')
-            ]);
-
-            const modal = document.getElementById('assign-series-modal');
-            const select = document.getElementById('series-select');
-            
-            const series = seriesResponse.data || seriesResponse;
-            select.innerHTML = '<option value="">Seleccionar serie</option>';
-            
-            series.forEach(s => {
-                const option = document.createElement('option');
-                option.value = s.id;
-                option.textContent = `${s.name} (${s.therapy_type_name})`;
-                select.appendChild(option);
-            });
-
-            document.getElementById('confirm-assign-btn').onclick = async () => {
-                const seriesId = select.value;
-                if (!seriesId) {
-                    this.showError('Debe seleccionar una serie');
-                    return;
-                }
-
-                try {
-                    const response = await this.apiCall(`/patients/${patientId}/assign-series`, {
-                        method: 'POST',
-                        body: JSON.stringify({ seriesId: parseInt(seriesId) })
-                    });
-
-                    this.showSuccess(response.message);
-                    this.hideModal();
-                    this.loadPatients();
-                } catch (error) {
-                    this.showError(error.message);
-                }
-            };
-
-            modal.classList.remove('hidden');
-        } catch (error) {
-            this.showError('Error cargando series: ' + error.message);
-        }
+    getState() {
+        return { ...this.state };
     }
 
-    async viewPatientSessions(patientId) {
-        try {
-            const response = await this.apiCall(`/sessions/patient/${patientId}`);
-            this.showPatientSessionsModal(response);
-        } catch (error) {
-            this.showError('Error cargando sesiones: ' + error.message);
-        }
-    }
-
-    showPatientSessionsModal(data) {
-        const modal = document.getElementById('patient-sessions-modal');
-        const content = document.getElementById('sessions-list');
-        
-        if (data.sessions.length === 0) {
-            content.innerHTML = '<p>No hay sesiones registradas para este paciente.</p>';
-        } else {
-            content.innerHTML = `
-                <div class="patient-stats">
-                    <h4>📊 Resumen</h4>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-label">Total Sesiones</span>
-                            <span class="stat-value">${data.stats.total_sessions}</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Mejora Promedio</span>
-                            <span class="stat-value ${data.stats.avg_improvement > 0 ? 'positive' : ''}">${data.stats.avg_improvement}</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Duración Promedio</span>
-                            <span class="stat-value">${data.stats.avg_duration} min</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Calificación Promedio</span>
-                            <span class="stat-value">${data.stats.avg_rating}/5</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h4>📋 Historial de Sesiones</h4>
-                ${data.sessions.map(session => `
-                    <div class="session-item">
-                        <div class="session-header-info">
-                            <h5>Sesión ${session.session_number}</h5>
-                            <span class="session-date">${new Date(session.completed_at).toLocaleDateString('es-ES')}</span>
-                        </div>
-                        <div class="pain-indicators">
-                            <span class="pain-indicator pain-before">Dolor inicial: ${session.pain_before}</span>
-                            <span class="pain-indicator pain-after">Dolor final: ${session.pain_after}</span>
-                            <span class="pain-indicator">Mejora: ${session.pain_before - session.pain_after} puntos</span>
-                            ${session.rating ? `<span class="pain-indicator">Calificación: ${session.rating}/5</span>` : ''}
-                        </div>
-                        <p><strong>Comentarios:</strong> ${session.comments}</p>
-                        ${session.duration_minutes ? `<p><strong>Duración:</strong> ${session.duration_minutes} minutos</p>` : ''}
-                    </div>
-                `).join('')}
-            `;
-        }
-
-        modal.classList.remove('hidden');
-    }
-
-    async duplicateSeries(seriesId) {
-        try {
-            const response = await this.apiCall(`/series/${seriesId}/duplicate`, {
-                method: 'POST'
-            });
-
-            this.showSuccess(response.message);
-            this.loadSeries();
-        } catch (error) {
-            this.showError('Error duplicando serie: ' + error.message);
-        }
-    }
-
-    async deleteSeries(seriesId) {
-        if (!confirm('¿Estás seguro de que quieres eliminar esta serie? Esta acción no se puede deshacer.')) {
-            return;
-        }
-
-        try {
-            const response = await this.apiCall(`/series/${seriesId}`, {
-                method: 'DELETE'
-            });
-
-            this.showSuccess(response.message);
-            this.loadSeries();
-        } catch (error) {
-            this.showError('Error eliminando serie: ' + error.message);
-        }
-    }
-
-    // CORREGIDO: Método faltante
-    async viewSeriesDetails(seriesId) {
-        try {
-            const response = await this.apiCall(`/series/${seriesId}`);
-            this.showSeriesDetailsModal(response.data);
-        } catch (error) {
-            this.showError('Error cargando detalles de la serie: ' + error.message);
-        }
-    }
-
-    showSeriesDetailsModal(series) {
-        // CORREGIDO: Implementar modal de detalles de serie si no existe
-        this.showNotification(`Serie: ${series.name} - ${series.postures.length} posturas - ${series.total_sessions} sesiones`, 'info');
+    isAuthenticated() {
+        return !!this.currentUser;
     }
 }
 
-// CSS for notifications
-const notificationCSS = `
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+// ===================================================================
+// INICIALIZACIÓN Y EXPORT GLOBAL
+// ===================================================================
+
+// Crear instancia global de la aplicación
+const softZenApp = new SoftZenApp();
+
+// Hacer disponible globalmente
+window.SoftZenApp = softZenApp;
+
+// Auto-inicializar cuando esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => softZenApp.init(), 500);
+    });
+} else {
+    setTimeout(() => softZenApp.init(), 500);
 }
 
-@keyframes slideOutRight {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
-}
-
-.empty-state {
-    text-align: center;
-    padding: 3rem;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-}
-
-.empty-state h3 {
-    color: #333;
-    margin-bottom: 1rem;
-}
-
-.empty-state p {
-    color: #666;
-}
-`;
-
-// Add CSS to document
-const style = document.createElement('style');
-style.textContent = notificationCSS;
-document.head.appendChild(style);
-
-// Inicializar app cuando DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new YogaTherapyApp();
+// Manejar evento de app lista
+window.addEventListener('appReady', () => {
+    console.log('🎉 SoftZen completamente inicializado y listo');
 });
 
-// Make app globally available
-window.app = null;
+console.log('📱 SoftZen App v2.1.2 módulo cargado');
+
+export default softZenApp;

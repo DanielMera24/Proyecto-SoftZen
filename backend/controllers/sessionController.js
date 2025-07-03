@@ -1,6 +1,6 @@
 import { getDatabase } from '../config/database.js';
 
-export async function getPatientSeries(req, res) {
+const getPatientSeries = async (req, res) => {
   try {
     if (req.user.role !== 'patient') {
       return res.status(403).json({
@@ -11,9 +11,18 @@ export async function getPatientSeries(req, res) {
 
     const db = getDatabase();
 
-    // Buscar el paciente por user_id
+    // CORREGIDA: Query mejorada con nombres de campo explícitos
     const patient = await db.get(`
-      SELECT p.*, ts.*, u.name as instructor_name
+      SELECT 
+        p.*,
+        ts.id as series_id,
+        ts.name as series_name,
+        ts.description as series_description,
+        ts.therapy_type,
+        ts.postures,
+        ts.total_sessions,
+        ts.estimated_duration,
+        u.name as instructor_name
       FROM patients p
       LEFT JOIN therapy_series ts ON p.assigned_series_id = ts.id
       LEFT JOIN users u ON p.instructor_id = u.id
@@ -27,7 +36,7 @@ export async function getPatientSeries(req, res) {
       });
     }
 
-    if (!patient.assigned_series_id) {
+    if (!patient.assigned_series_id || !patient.series_id) {
       return res.json({
         patient: {
           id: patient.id,
@@ -40,7 +49,8 @@ export async function getPatientSeries(req, res) {
     }
 
     // Calcular progreso
-    const progressPercentage = Math.round((patient.current_session / patient.total_sessions) * 100);
+    const progressPercentage = patient.total_sessions > 0 ? 
+      Math.round((patient.current_session / patient.total_sessions) * 100) : 0;
     const isCompleted = patient.current_session >= patient.total_sessions;
 
     const responseData = {
@@ -53,8 +63,8 @@ export async function getPatientSeries(req, res) {
       },
       series: {
         id: patient.assigned_series_id,
-        name: patient.name_1 || patient.name, // CORREGIDO: usar el nombre correcto de la serie
-        description: patient.description,
+        name: patient.series_name || 'Serie Asignada',
+        description: patient.series_description || '',
         therapy_type: patient.therapy_type,
         postures: patient.postures ? JSON.parse(patient.postures) : [],
         total_sessions: patient.total_sessions,
@@ -74,9 +84,9 @@ export async function getPatientSeries(req, res) {
       code: 'GET_PATIENT_SERIES_ERROR'
     });
   }
-}
+};
 
-export async function createSession(req, res) {
+const createSession = async (req, res) => {
   try {
     if (req.user.role !== 'patient') {
       return res.status(403).json({
@@ -97,7 +107,7 @@ export async function createSession(req, res) {
       rating
     } = req.body;
 
-    // Validaciones
+    // Validaciones mejoradas
     if (painBefore === undefined || painAfter === undefined) {
       return res.status(400).json({
         error: 'Los niveles de dolor antes y después son obligatorios',
@@ -160,79 +170,99 @@ export async function createSession(req, res) {
 
     const sessionNumber = (patient.current_session || 0) + 1;
 
-    // Crear sesión
-    const result = await db.run(`
-      INSERT INTO sessions (
-        patient_id, series_id, session_number, pain_before, pain_after, 
-        mood_before, mood_after, comments, duration_minutes, 
-        postures_completed, postures_skipped, rating
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      patient.id, 
-      patient.series_id, 
-      sessionNumber, 
-      painBefore, 
-      painAfter,
-      moodBefore || null,
-      moodAfter || null,
-      comments.trim(), 
-      durationMinutes,
-      posturesCompleted,
-      posturesSkipped,
-      rating || null
-    ]);
+    // Crear sesión usando una transacción para asegurar consistencia
+    await db.run('BEGIN TRANSACTION');
 
-    const session = await db.get('SELECT * FROM sessions WHERE id = ?', [result.lastID]);
+    try {
+      const result = await db.run(`
+        INSERT INTO sessions (
+          patient_id, series_id, session_number, pain_before, pain_after, 
+          mood_before, mood_after, comments, duration_minutes, 
+          postures_completed, postures_skipped, rating
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        patient.id, 
+        patient.series_id, 
+        sessionNumber, 
+        painBefore, 
+        painAfter,
+        moodBefore || null,
+        moodAfter || null,
+        comments.trim(), 
+        durationMinutes,
+        posturesCompleted,
+        posturesSkipped,
+        rating || null
+      ]);
 
-    // Crear notificación para el instructor
-    await db.run(`
-      INSERT INTO notifications (user_id, type, title, message, data) 
-      VALUES (?, 'session_completed', 'Sesión Completada', ?, ?)
-    `, [
-      patient.instructor_id, 
-      `${patient.name} completó la sesión ${sessionNumber} con una mejora de dolor de ${painBefore - painAfter} puntos.`,
-      JSON.stringify({ 
-        patient_id: patient.id, 
-        session_id: session.id, 
-        session_number: sessionNumber,
-        pain_improvement: painBefore - painAfter
-      })
-    ]);
+      const session = await db.get('SELECT * FROM sessions WHERE id = ?', [result.lastID]);
 
-    // Log analytics
-    await db.run(`
-      INSERT INTO analytics_events (user_id, patient_id, event_type, event_data) 
-      VALUES (?, ?, 'session_completed', ?)
-    `, [req.user.id, patient.id, JSON.stringify({
-      session_id: session.id,
-      session_number: sessionNumber,
-      pain_improvement: painBefore - painAfter,
-      duration_minutes: durationMinutes,
-      rating: rating
-    })]);
+      // Crear notificación para el instructor
+      try {
+        await db.run(`
+          INSERT INTO notifications (user_id, type, title, message, data) 
+          VALUES (?, 'session_completed', 'Sesión Completada', ?, ?)
+        `, [
+          patient.instructor_id, 
+          `${patient.name} completó la sesión ${sessionNumber} con una mejora de dolor de ${painBefore - painAfter} puntos.`,
+          JSON.stringify({ 
+            patient_id: patient.id, 
+            session_id: session.id, 
+            session_number: sessionNumber,
+            pain_improvement: painBefore - painAfter
+          })
+        ]);
+      } catch (notificationError) {
+        console.warn('Error creando notificación:', notificationError);
+        // No fallar la sesión por un error de notificación
+      }
 
-    // Calcular mensaje de mejora
-    const painImprovement = painBefore - painAfter;
-    let improvementMessage = '';
-    
-    if (painImprovement > 0) {
-      improvementMessage = `¡Excelente! Tu nivel de dolor se redujo en ${painImprovement} puntos.`;
-    } else if (painImprovement < 0) {
-      improvementMessage = `Aunque el dolor aumentó ligeramente, seguir practicando traerá beneficios.`;
-    } else {
-      improvementMessage = `Mantuviste tu nivel de dolor estable. ¡Sigue así!`;
+      // Log analytics
+      try {
+        await db.run(`
+          INSERT INTO analytics_events (user_id, patient_id, event_type, event_data) 
+          VALUES (?, ?, 'session_completed', ?)
+        `, [req.user.id, patient.id, JSON.stringify({
+          session_id: session.id,
+          session_number: sessionNumber,
+          pain_improvement: painBefore - painAfter,
+          duration_minutes: durationMinutes,
+          rating: rating
+        })]);
+      } catch (analyticsError) {
+        console.warn('Error registrando analytics:', analyticsError);
+        // No fallar la sesión por un error de analytics
+      }
+
+      await db.run('COMMIT');
+
+      // Calcular mensaje de mejora
+      const painImprovement = painBefore - painAfter;
+      let improvementMessage = '';
+      
+      if (painImprovement > 0) {
+        improvementMessage = `¡Excelente! Tu nivel de dolor se redujo en ${painImprovement} puntos.`;
+      } else if (painImprovement < 0) {
+        improvementMessage = `Aunque el dolor aumentó ligeramente, seguir practicando traerá beneficios.`;
+      } else {
+        improvementMessage = `Mantuviste tu nivel de dolor estable. ¡Sigue así!`;
+      }
+
+      res.status(201).json({
+        session,
+        progress: {
+          current_session: sessionNumber,
+          total_sessions: patient.total_sessions,
+          progress_percentage: Math.round((sessionNumber / patient.total_sessions) * 100),
+          is_completed: sessionNumber >= patient.total_sessions
+        },
+        message: `🎉 ¡Sesión ${sessionNumber} completada exitosamente! ${improvementMessage}`
+      });
+
+    } catch (transactionError) {
+      await db.run('ROLLBACK');
+      throw transactionError;
     }
-
-    res.status(201).json({
-      session,
-      progress: {
-        current_session: sessionNumber,
-        total_sessions: patient.total_sessions,
-        progress_percentage: Math.round((sessionNumber / patient.total_sessions) * 100),
-        is_completed: sessionNumber >= patient.total_sessions
-      },
-      message: `🎉 ¡Sesión ${sessionNumber} completada exitosamente! ${improvementMessage}`
-    });
 
   } catch (error) {
     console.error('Error creando sesión:', error);
@@ -241,15 +271,23 @@ export async function createSession(req, res) {
       code: 'CREATE_SESSION_ERROR'
     });
   }
-}
+};
 
-export async function getPatientSessions(req, res) {
+const getPatientSessions = async (req, res) => {
   try {
     const patientId = parseInt(req.params.patientId);
+    
+    if (isNaN(patientId)) {
+      return res.status(400).json({
+        error: 'ID de paciente inválido',
+        code: 'INVALID_PATIENT_ID'
+      });
+    }
+
     const db = getDatabase();
 
     let query = `
-      SELECT s.*, ts.name as series_name, ts.therapy_type
+      SELECT s.*, COALESCE(ts.name, 'Sin serie') as series_name, ts.therapy_type
       FROM sessions s
       LEFT JOIN therapy_series ts ON s.series_id = ts.id
       WHERE s.patient_id = ?
@@ -336,9 +374,9 @@ export async function getPatientSessions(req, res) {
       code: 'GET_PATIENT_SESSIONS_ERROR'
     });
   }
-}
+};
 
-export async function getMySessions(req, res) {
+const getMySessions = async (req, res) => {
   try {
     if (req.user.role !== 'patient') {
       return res.status(403).json({
@@ -373,15 +411,23 @@ export async function getMySessions(req, res) {
       code: 'GET_MY_SESSIONS_ERROR'
     });
   }
-}
+};
 
-export async function getSessionById(req, res) {
+const getSessionById = async (req, res) => {
   try {
     const sessionId = parseInt(req.params.id);
+    
+    if (isNaN(sessionId)) {
+      return res.status(400).json({
+        error: 'ID de sesión inválido',
+        code: 'INVALID_SESSION_ID'
+      });
+    }
+
     const db = getDatabase();
 
     let query = `
-      SELECT s.*, ts.name as series_name, ts.therapy_type, p.name as patient_name
+      SELECT s.*, COALESCE(ts.name, 'Sin serie') as series_name, ts.therapy_type, p.name as patient_name
       FROM sessions s
       LEFT JOIN therapy_series ts ON s.series_id = ts.id
       LEFT JOIN patients p ON s.patient_id = p.id
@@ -417,9 +463,9 @@ export async function getSessionById(req, res) {
       code: 'GET_SESSION_ERROR'
     });
   }
-}
+};
 
-export async function updateSession(req, res) {
+const updateSession = async (req, res) => {
   try {
     if (req.user.role !== 'patient') {
       return res.status(403).json({
@@ -430,6 +476,13 @@ export async function updateSession(req, res) {
 
     const sessionId = parseInt(req.params.id);
     const { comments, rating } = req.body;
+
+    if (isNaN(sessionId)) {
+      return res.status(400).json({
+        error: 'ID de sesión inválido',
+        code: 'INVALID_SESSION_ID'
+      });
+    }
 
     if (!comments && !rating) {
       return res.status(400).json({
@@ -459,7 +512,7 @@ export async function updateSession(req, res) {
     let updateFields = [];
     let updateValues = [];
 
-    if (comments) {
+    if (comments && comments.trim().length >= 10) {
       updateFields.push('comments = ?');
       updateValues.push(comments.trim());
     }
@@ -473,6 +526,13 @@ export async function updateSession(req, res) {
       }
       updateFields.push('rating = ?');
       updateValues.push(rating);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        error: 'No hay datos válidos para actualizar',
+        code: 'NO_VALID_UPDATE_DATA'
+      });
     }
 
     updateValues.push(sessionId);
@@ -497,4 +557,14 @@ export async function updateSession(req, res) {
       code: 'UPDATE_SESSION_ERROR'
     });
   }
-}
+};
+
+// Export default del controlador
+export default {
+  getPatientSeries,
+  createSession,
+  getPatientSessions,
+  getMySessions,
+  getSessionById,
+  updateSession
+};

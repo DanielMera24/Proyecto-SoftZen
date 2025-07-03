@@ -1,26 +1,19 @@
 import express from 'express';
-import { 
-  getPatientSeries,
-  createSession, 
-  getPatientSessions,
-  getMySessions,
-  getSessionById,
-  updateSession
-} from '../controllers/sessionController.js';
+import sessionController from '../controllers/sessionController.js';
 import { requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Rutas específicas para pacientes
-router.get('/my-series', requireRole('patient'), getPatientSeries);
-router.post('/', requireRole('patient'), createSession);
-router.get('/my-sessions', requireRole('patient'), getMySessions);
+router.get('/my-series', requireRole('patient'), sessionController.getPatientSeries);
+router.post('/', requireRole('patient'), sessionController.createSession);
+router.get('/my-sessions', requireRole('patient'), sessionController.getMySessions);
 
 // Rutas para ambos roles
-router.get('/:id', getSessionById);
-router.put('/:id', updateSession);
+router.get('/:id', sessionController.getSessionById);
+router.put('/:id', sessionController.updateSession);
 
 // Rutas para instructores (ver sesiones de sus pacientes)
-router.get('/patient/:patientId', getPatientSessions);
+router.get('/patient/:patientId', sessionController.getPatientSessions);
 
 export default router;

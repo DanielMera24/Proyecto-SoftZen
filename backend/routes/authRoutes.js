@@ -1,27 +1,20 @@
 import express from 'express';
-import { 
-    register, 
-    login, 
-    getProfile, 
-    updateProfile, 
-    changePassword,
-    getAvailableInstructors
-} from '../controllers/authController.js';
+import authController from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Rutas públicas
-router.post('/register', register);
-router.post('/login', login);
-router.get('/instructors', getAvailableInstructors);
+router.post('/register', (req, res) => authController.register(req, res));
+router.post('/login', (req, res) => authController.login(req, res));
+router.post('/refresh', (req, res) => authController.refreshToken(req, res));
+router.get('/instructors', (req, res) => authController.getInstructors(req, res));
 
 // Rutas protegidas
-router.get('/profile', authenticateToken, getProfile);
-router.put('/profile', authenticateToken, updateProfile);
-router.put('/change-password', authenticateToken, changePassword);
+router.get('/validate', (req, res) => authController.validateToken(req, res));
+router.post('/logout', (req, res) => authController.logout(req, res));
 
-// Ruta para verificar token
+// Ruta para verificar token (compatibilidad)
 router.get('/verify', authenticateToken, (req, res) => {
     res.json({ 
         valid: true, 

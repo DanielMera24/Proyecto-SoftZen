@@ -1,0 +1,283 @@
+# ================================================================
+# SOFTZEN - GITIGNORE OPTIMIZADO v2.0
+# Rendimiento, Sostenibilidad y Escalabilidad
+# ================================================================
+
+# ====== DEPENDENCIAS ======
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ====== ARCHIVOS DE CONSTRUCCIÓN ======
+/dist
+/build
+/.next/
+/out/
+/.nuxt/
+/.vuepress/dist
+/.serverless/
+/.fusebox/
+
+# ====== VARIABLES DE ENTORNO ======
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# ====== FIREBASE ======
+.firebase/
+.firebaserc.local
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+hosting-debug.log
+functions-debug.log
+storage-debug.log
+
+# ====== BASE DE DATOS ======
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.db-journal
+
+# ====== LOGS ======
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ====== RUNTIME DATA ======
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ====== COVERAGE DIRECTORY ======
+lib-cov
+coverage/
+*.lcov
+.nyc_output
+.coverage
+
+# ====== INSTRUMENTOS NYISTAGME ======
+.grunt
+
+# ====== DEPENDENCY DIRECTORIES ======
+node_modules/
+jspm_packages/
+
+# ====== TYPESCRIPT ======
+*.tsbuildinfo
+
+# ====== OPTIONAL NPM CACHE ======
+.npm
+
+# ====== OPTIONAL ESLINT CACHE ======
+.eslintcache
+
+# ====== MICROBUNDLE CACHE ======
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# ====== OPTIONAL REPL HISTORY ======
+.node_repl_history
+
+# ====== OUTPUT DE 'NPM PACK' ======
+*.tgz
+
+# ====== YARN INTEGRITY FILE ======
+.yarn-integrity
+
+# ====== PARCEL-BUNDLER CACHE ======
+.cache
+.parcel-cache
+
+# ====== NEXT.JS ======
+.next
+out
+
+# ====== NUXT.JS ======
+.nuxt
+dist
+
+# ====== GATSBY ======
+.cache/
+public
+
+# ====== VUE.JS ======
+.vuepress/dist
+
+# ====== SERVERLESS ======
+.serverless/
+
+# ====== FUSEBOX ======
+.fusebox/
+
+# ====== DYNAMODB LOCAL ======
+.dynamodb/
+
+# ====== TERNJS PORT FILE ======
+.tern-port
+
+# ====== ARCHIVOS TEMPORALES ======
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# ====== SISTEMA OPERATIVO ======
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ====== IDEs Y EDITORES ======
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.metadata
+.recommenders
+*.sublime-project
+*.sublime-workspace
+
+# ====== ARCHIVOS BACKUP ======
+*.bak
+*.backup
+*.old
+*.orig
+
+# ====== ARCHIVOS DE CONFIGURACIÓN LOCALES ======
+.editorconfig.local
+.prettierrc.local
+
+# ====== ARCHIVOS DE PRUEBAS ======
+test-results/
+coverage/
+.nyc_output/
+
+# ====== ARCHIVOS DE DESPLIEGUE ======
+deploy.log
+deployment/
+
+# ====== CACHE DE DIVERSOS TOOLS ======
+.sass-cache/
+.cache/
+.eslintcache
+.stylelintcache
+
+# ====== ARCHIVOS ESPECÍFICOS DE SOFTZEN ======
+# Scripts obsoletos (ya eliminados)
+abrir-softzen.bat
+ARREGLAR-PRODUCCION.bat
+ARREGLAR_FIREBASE.bat
+check-port.bat
+restart-server.bat
+arreglar-produccion.js
+setup-firebase-auth-only.js
+
+# Documentación redundante (ya eliminados)
+ACCESO_SISTEMA.md
+CONFIGURAR_FIREBASE_RAPIDO.md
+CORRECCIONES-COMPLETADAS.md
+CORRECCIONES_APLICADAS.md
+GUIA_RAPIDA_ACCESO.md
+INICIO_RAPIDO.md
+INSTRUCCIONES_FINALES.md
+LISTO-PARA-USAR.md
+SOLUCION_PROBLEMAS.md
+SOLUCION_RAPIDA.md
+
+# Backups automáticos
+backup_*/
+*.backup-*
+
+# Archivos de configuración de desarrollo
+.vscode/settings.json
+.vscode/launch.json
+
+# ====== ASSETS PESADOS ======
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+uploads/large/
+media/videos/
+
+# ====== COMPRESIÓN Y ARCHIVOS ======
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+
+# ====== CERTIFICADOS Y CLAVES ======
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# ====== ANÁLISIS DE BUNDLE ======
+bundle-analyzer/
+webpack-bundle-analyzer.json
+
+# ====== OTROS ======
+.vercel
+.netlify
+.surge
+
+# ====== MANTENER ESTOS ARCHIVOS ======
+!.gitkeep
+!.gitignore
+!.github/
+!README.md
+!LICENSE
+!package.json
+!firebase.json
+!firestore.rules
+!firestore.indexes.json
+!storage.rules
+
+# ====== ARCHIVOS OPTIMIZADOS A MANTENER ======
+!deploy-optimizado-v2.bat
+!cleanup-optimize.bat
+!dev-center.bat
